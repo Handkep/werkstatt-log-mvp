@@ -8,7 +8,7 @@
   <p class="muted">Die neuesten Einträge der Werkstatt-Nutzung.</p>
 
   {% if entries %}
-    <div class="entry-table-wrap">
+    <div class="entry-table-wrap desktop-only">
       <table class="entry-table">
         <thead>
           <tr>
@@ -53,6 +53,38 @@
           {% endfor %}
         </tbody>
       </table>
+    </div>
+
+    <div class="mobile-entry-list mobile-only">
+      {% for entry in entries %}
+        <article class="mobile-entry-card">
+          <div class="mobile-entry-head">
+            <strong>{{ entry.person_name }}</strong>
+            <span class="mobile-entry-house">{{ entry.house }}</span>
+          </div>
+          <p class="mobile-entry-time">{{ entry.started_at|datetime_de }}</p>
+
+          {% if entry.remark %}
+            <p class="mobile-entry-remark">{{ entry.remark }}</p>
+          {% else %}
+            <p class="mobile-entry-remark mobile-entry-empty">Keine Bemerkung</p>
+          {% endif %}
+
+          <span class="condition-pill
+            {% if entry.condition == 'Sauber' %}condition-clean{% elif entry.condition == 'Aufräumen nötig' %}condition-warning{% elif entry.condition == 'Problem/Defekt' %}condition-problem{% endif %}
+          ">{{ entry.condition or "Nicht erfasst" }}</span>
+
+          <div class="mobile-entry-actions">
+            {% if entry.image_count %}
+              <button class="booking-images" type="button" data-viewer-images='{{ entry.images|tojson }}'>
+                {{ entry.image_count }} Bild{% if entry.image_count != 1 %}er{% endif %}
+              </button>
+            {% else %}
+              <span class="entry-empty">Keine Bilder</span>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
     </div>
   {% else %}
     <p>Noch keine Buchungen.</p>
