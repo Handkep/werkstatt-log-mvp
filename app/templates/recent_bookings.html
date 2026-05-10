@@ -2,39 +2,57 @@
 {% block title %}Letzte Buchungen{% endblock %}
 
 {% block content %}
-<section class="card">
+<section class="card wide">
   {% include "theme_toggle.html" %}
   <h1>Letzte Buchungen</h1>
   <p class="muted">Die neuesten Einträge der Werkstatt-Nutzung.</p>
 
   {% if entries %}
-    <div class="booking-list">
-      {% for entry in entries %}
-        <article class="booking-entry">
-          <div class="booking-head">
-            <strong>{{ entry.person_name }}</strong>
-            <span class="condition-pill
-              {% if entry.condition == 'Sauber' %}condition-clean{% elif entry.condition == 'Aufräumen nötig' %}condition-warning{% elif entry.condition == 'Problem/Defekt' %}condition-problem{% endif %}
-            ">{{ entry.condition or "Nicht erfasst" }}</span>
-          </div>
-
-          <div class="booking-meta">
-            <span>{{ entry.house }}</span>
-            <span>{{ entry.room_name }}</span>
-            <time>{{ entry.started_at|datetime_de }}</time>
-          </div>
-
-          {% if entry.remark %}
-            <p class="booking-remark">{{ entry.remark }}</p>
-          {% endif %}
-
-          {% if entry.image_count %}
-            <button class="booking-images" type="button" data-viewer-images='{{ entry.images|tojson }}'>
-              {{ entry.image_count }} Bild{% if entry.image_count != 1 %}er{% endif %}
-            </button>
-          {% endif %}
-        </article>
-      {% endfor %}
+    <div class="entry-table-wrap">
+      <table class="entry-table">
+        <thead>
+          <tr>
+            <th>Zeit</th>
+            <th>Name</th>
+            <th>Haus</th>
+            <th>Raum</th>
+            <th>Zustand</th>
+            <th>Bemerkung</th>
+            <th>Bilder</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in entries %}
+            <tr class="entry-row">
+              <td class="entry-time entry-cell-time" data-label="Zeit">{{ entry.started_at|datetime_de }}</td>
+              <td class="entry-cell-name" data-label="Name"><strong>{{ entry.person_name }}</strong></td>
+              <td class="entry-cell-house" data-label="Haus">{{ entry.house }}</td>
+              <td class="entry-cell-room" data-label="Raum">{{ entry.room_name }}</td>
+              <td class="entry-cell-condition" data-label="Zustand">
+                <span class="condition-pill
+                  {% if entry.condition == 'Sauber' %}condition-clean{% elif entry.condition == 'Aufräumen nötig' %}condition-warning{% elif entry.condition == 'Problem/Defekt' %}condition-problem{% endif %}
+                ">{{ entry.condition or "Nicht erfasst" }}</span>
+              </td>
+              <td class="entry-cell-remark" data-label="Bemerkung">
+                {% if entry.remark %}
+                  <p class="entry-remark">{{ entry.remark }}</p>
+                {% else %}
+                  <span class="entry-empty">Keine Bemerkung</span>
+                {% endif %}
+              </td>
+              <td class="entry-cell-images" data-label="Bilder">
+                {% if entry.image_count %}
+                  <button class="booking-images" type="button" data-viewer-images='{{ entry.images|tojson }}'>
+                    {{ entry.image_count }} Bild{% if entry.image_count != 1 %}er{% endif %}
+                  </button>
+                {% else %}
+                  <span class="entry-empty">Keine</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   {% else %}
     <p>Noch keine Buchungen.</p>
@@ -46,12 +64,20 @@
 <div class="image-viewer" data-image-viewer hidden>
   <div class="image-viewer-backdrop" data-viewer-close></div>
   <div class="image-viewer-panel" role="dialog" aria-modal="true" aria-label="Bilder ansehen">
-    <button class="image-viewer-close" type="button" data-viewer-close aria-label="Viewer schließen">×</button>
-    <img data-viewer-image alt="Hochgeladenes Bild">
+    <div class="image-viewer-topbar">
+      <div class="image-viewer-meta">
+        <strong>Bilder</strong>
+        <span data-viewer-count></span>
+      </div>
+      <button class="image-viewer-close" type="button" data-viewer-close aria-label="Viewer schließen">×</button>
+    </div>
+    <div class="image-viewer-stage">
+      <button class="image-viewer-nav image-viewer-nav-prev" type="button" data-viewer-prev aria-label="Vorheriges Bild">‹</button>
+      <img data-viewer-image alt="Hochgeladenes Bild">
+      <button class="image-viewer-nav image-viewer-nav-next" type="button" data-viewer-next aria-label="Nächstes Bild">›</button>
+    </div>
     <div class="image-viewer-controls">
-      <button type="button" data-viewer-prev>Zurück</button>
-      <span data-viewer-count></span>
-      <button type="button" data-viewer-next>Weiter</button>
+      <p class="image-viewer-hint">Mit den Pfeiltasten navigieren, mit Esc schließen.</p>
     </div>
   </div>
 </div>

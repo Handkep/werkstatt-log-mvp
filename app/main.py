@@ -449,7 +449,8 @@ def admin(request: Request):
                 usage_sessions.condition,
                 usage_sessions.remark,
                 usage_sessions.started_at,
-                COUNT(usage_images.id) AS image_count
+                COUNT(usage_images.id) AS image_count,
+                GROUP_CONCAT(usage_images.filename) AS image_filenames
             FROM usage_sessions
             JOIN rooms ON rooms.id = usage_sessions.room_id
             LEFT JOIN usage_images ON usage_images.session_id = usage_sessions.id
@@ -459,6 +460,11 @@ def admin(request: Request):
             LIMIT 100
             """
         ).fetchall()
+        entries = [dict(entry) for entry in entries]
+
+    for entry in entries:
+        filenames = entry["image_filenames"] or ""
+        entry["images"] = [filename for filename in filenames.split(",") if filename]
 
     return templates.TemplateResponse(
         "admin.html",

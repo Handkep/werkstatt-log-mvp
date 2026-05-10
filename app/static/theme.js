@@ -38,11 +38,23 @@ document.querySelectorAll(".file-input").forEach((input) => {
 });
 
 document.querySelectorAll(".clickable-row").forEach((row) => {
-  row.addEventListener("click", () => {
+  function eventStartedInControl(event) {
+    return Boolean(event.target.closest("a, button, input, textarea, select"));
+  }
+
+  row.addEventListener("click", (event) => {
+    if (eventStartedInControl(event)) {
+      return;
+    }
+
     window.location.href = row.dataset.href;
   });
 
   row.addEventListener("keydown", (event) => {
+    if (eventStartedInControl(event)) {
+      return;
+    }
+
     if (event.key === "Enter") {
       window.location.href = row.dataset.href;
     }
@@ -56,8 +68,10 @@ if (viewer) {
   const viewerCount = viewer.querySelector("[data-viewer-count]");
   const prevButton = viewer.querySelector("[data-viewer-prev]");
   const nextButton = viewer.querySelector("[data-viewer-next]");
+  const closeButton = viewer.querySelector(".image-viewer-close");
   let images = [];
   let currentIndex = 0;
+  let lastTrigger = null;
 
   function showImage(index) {
     if (images.length === 0) {
@@ -66,25 +80,31 @@ if (viewer) {
 
     currentIndex = (index + images.length) % images.length;
     viewerImage.src = `/uploads/${images[currentIndex]}`;
-    viewerCount.textContent = `${currentIndex + 1} / ${images.length}`;
+    viewerCount.textContent = `${currentIndex + 1} von ${images.length}`;
     prevButton.hidden = images.length < 2;
     nextButton.hidden = images.length < 2;
   }
 
-  function openViewer(nextImages) {
+  function openViewer(nextImages, trigger) {
     images = nextImages;
+    lastTrigger = trigger ?? null;
     viewer.hidden = false;
+    document.body.style.overflow = "hidden";
     showImage(0);
+    closeButton.focus();
   }
 
   function closeViewer() {
     viewer.hidden = true;
     viewerImage.removeAttribute("src");
+    document.body.style.overflow = "";
+    lastTrigger?.focus();
   }
 
   document.querySelectorAll("[data-viewer-images]").forEach((button) => {
-    button.addEventListener("click", () => {
-      openViewer(JSON.parse(button.dataset.viewerImages));
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openViewer(JSON.parse(button.dataset.viewerImages), button);
     });
   });
 
@@ -94,10 +114,29 @@ if (viewer) {
 
   prevButton.addEventListener("click", () => showImage(currentIndex - 1));
   nextButton.addEventListener("click", () => showImage(currentIndex + 1));
+  viewerImage.addEventListener("click", () => {
+    if (images.length > 1) {
+      showImage(currentIndex + 1);
+    }
+  });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !viewer.hidden) {
+    if (viewer.hidden) {
+      return;
+    }
+
+    if (event.key === "Escape") {
       closeViewer();
+      return;
+    }
+
+    if (event.key === "ArrowLeft" && images.length > 1) {
+      showImage(currentIndex - 1);
+      return;
+    }
+
+    if (event.key === "ArrowRight" && images.length > 1) {
+      showImage(currentIndex + 1);
     }
   });
 }
