@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Gespeichert{% endblock %}
+
+{% block content %}
+<section class="card">
+  {% include "theme_toggle.html" %}
+  <h1>Danke!</h1>
+  <p>Die Nutzung wurde gespeichert.</p>
+
+  <section class="exit-checklist" aria-labelledby="exit-checklist-title" data-exit-checklist>
+    <div class="exit-checklist-head">
+      <div>
+        <h2 id="exit-checklist-title">Bitte den Raum so verlassen</h2>
+        <p class="muted">Ein letzter kurzer Check hilft allen, die die Werkstatt nach dir nutzen.</p>
+      </div>
+      <span class="checklist-progress" data-checklist-progress>0 / 5 erledigt</span>
+    </div>
+
+    <div class="checklist-meter" aria-hidden="true">
+      <span class="checklist-meter-fill" data-checklist-meter></span>
+    </div>
+
+    <ul class="checklist" data-checklist-items>
+      <li>
+        <label class="checklist-item">
+          <input type="checkbox" data-checklist-input>
+          <span class="checklist-mark" aria-hidden="true"></span>
+          <span class="checklist-copy">
+            <strong>Werkzeug zurückräumen</strong>
+            <small>Bitte alles wieder an den vorgesehenen Platz legen.</small>
+          </span>
+        </label>
+      </li>
+      <li>
+        <label class="checklist-item">
+          <input type="checkbox" data-checklist-input>
+          <span class="checklist-mark" aria-hidden="true"></span>
+          <span class="checklist-copy">
+            <strong>Arbeitsflächen sauber hinterlassen</strong>
+            <small>Werkbank, Maschinen und benutzte Flächen kurz abwischen.</small>
+          </span>
+        </label>
+      </li>
+      <li>
+        <label class="checklist-item">
+          <input type="checkbox" data-checklist-input>
+          <span class="checklist-mark" aria-hidden="true"></span>
+          <span class="checklist-copy">
+            <strong>Müll und Restmaterial entsorgen</strong>
+            <small>Verschnitt, Verpackungen und Abfall bitte direkt mitnehmen oder entsorgen.</small>
+          </span>
+        </label>
+      </li>
+      <li>
+        <label class="checklist-item">
+          <input type="checkbox" data-checklist-input>
+          <span class="checklist-mark" aria-hidden="true"></span>
+          <span class="checklist-copy">
+            <strong>Fenster und Licht prüfen</strong>
+            <small>Fenster schließen und Licht ausschalten, wenn niemand mehr da ist.</small>
+          </span>
+        </label>
+      </li>
+      <li>
+        <label class="checklist-item">
+          <input type="checkbox" data-checklist-input>
+          <span class="checklist-mark" aria-hidden="true"></span>
+          <span class="checklist-copy">
+            <strong>Tür ordentlich schließen</strong>
+            <small>Beim Verlassen bitte kurz kontrollieren, dass die Werkstatt sicher geschlossen ist.</small>
+          </span>
+        </label>
+      </li>
+    </ul>
+
+    <p class="checklist-success" data-checklist-success hidden>Alles erledigt. Danke, dass du die Werkstatt ordentlich hinterlässt.</p>
+  </section>
+
+  <p class="card-link">
+    <a class="button" href="/r/werkstatt">Noch einen Eintrag anlegen</a>
+  </p>
+</section>
+{% endblock %}

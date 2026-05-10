@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ room.name }}{% endblock %}
+
+{% block content %}
+<section class="card">
+  {% include "theme_toggle.html" %}
+  <h1>{{ room.name }}</h1>
+  <p class="muted">Dokumentiere kurz die Nutzung des Raums.</p>
+
+  <form method="post" action="/r/{{ room.slug }}/submit" enctype="multipart/form-data">
+    <label>
+      Name
+      <input name="person_name" required autocomplete="name" placeholder="{{ name_placeholder }}">
+    </label>
+
+    <fieldset>
+      <legend>Haus</legend>
+      <div class="radio-group">
+          {% for group in house_groups %}
+            <label class="radio-option">
+              <input type="radio" name="house_group" value="{{ group }}" required {% if loop.first %}checked{% endif %}>
+              <span>{{ group }}</span>
+            </label>
+          {% endfor %}
+      </div>
+    </fieldset>
+
+    <label>
+      Nummer
+      <input name="house_number" required inputmode="numeric" pattern="[0-9]+" placeholder="z. B. 1">
+    </label>
+
+    <fieldset>
+      <legend>Zustand der Werkstatt</legend>
+      <div class="radio-group condition-group">
+        {% for condition in conditions %}
+          <label class="radio-option">
+            <input type="radio" name="condition" value="{{ condition }}" required {% if loop.first %}checked{% endif %}>
+            <span>{{ condition }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <label>
+      Bemerkung optional
+      <textarea name="remark" rows="4" placeholder="z. B. Werkbank benutzt, alles sauber hinterlassen"></textarea>
+    </label>
+
+    <div class="file-field">
+      <span class="field-label">Bilder optional</span>
+      <label class="file-drop">
+        <input class="file-input" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+        <span class="file-drop-title">Bilder auswählen</span>
+        <span class="file-drop-hint" data-file-label>JPG, PNG oder WebP</span>
+      </label>
+    </div>
+
+    <p class="form-note">
+      Mit dem Speichern akzeptierst du die <a href="/datenschutz">Datenschutzhinweise</a>.<br>
+      Hast du Fragen, Verbesserungsvorschläge oder Anmerkungen?
+      <a href="/anmerkungen">Lass gerne eine Nachricht da.</a>
+    </p>
+
+    <button type="submit">Nutzung speichern</button>
+  </form>
+
+  <p class="card-link">
+    <a href="/letzte-buchungen">Letzte Buchungen ansehen</a>
+  </p>
+</section>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Datenschutz{% endblock %}
+
+{% block content %}
+<section class="card">
+  {% include "theme_toggle.html" %}
+  <h1>Datenschutz</h1>
+
+  <p>
+    Diese App speichert Angaben zur Dokumentation der Raumnutzung.
+    Erfasst werden Name, Haus, Bemerkung, Zeitpunkt und optional hochgeladene Bilder.
+  </p>
+
+  <p>
+    Die gespeicherten Daten werden nicht an Dritte weitergegeben und nur von berechtigten
+    Personen eingesehen. Sie dienen ausschließlich der internen Nachvollziehbarkeit der
+    Nutzung.
+  </p>
+
+  <p>
+    Wenn ein Eintrag korrigiert oder entfernt werden soll, wende dich an die verantwortliche
+    Person für die Werkstatt.
+  </p>
+
+  <p><a href="/r/werkstatt">Zurück zum Formular</a></p>
+</section>
+{% endblock %}

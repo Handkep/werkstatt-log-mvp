@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+
+{% block content %}
+<section class="card wide">
+  {% include "theme_toggle.html" %}
+  <h1>Werkstatt-Nutzung</h1>
+
+  {% if entries %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Zeit</th>
+            <th>Raum</th>
+            <th>Name</th>
+            <th>Haus</th>
+            <th>Zustand</th>
+            <th>Bemerkung</th>
+            <th>Bilder</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entries %}
+            <tr class="clickable-row" data-href="/admin/session/{{ e.id }}" tabindex="0">
+              <td>{{ e.started_at|datetime_de }}</td>
+              <td>{{ e.room_name }}</td>
+              <td>{{ e.person_name }}</td>
+              <td>{{ e.house }}</td>
+              <td>
+                <span class="condition-pill
+                  {% if e.condition == 'Sauber' %}condition-clean{% elif e.condition == 'Aufräumen nötig' %}condition-warning{% elif e.condition == 'Problem/Defekt' %}condition-problem{% endif %}
+                ">{{ e.condition or "Nicht erfasst" }}</span>
+              </td>
+              <td>{{ e.remark }}</td>
+              <td>{{ e.image_count }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>Noch keine Einträge.</p>
+  {% endif %}
+</section>
+{% endblock %}

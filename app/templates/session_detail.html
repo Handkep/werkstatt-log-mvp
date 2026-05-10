@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Eintrag {{ entry.id }}{% endblock %}
+
+{% block content %}
+<section class="card wide">
+  {% include "theme_toggle.html" %}
+  <h1>Eintrag #{{ entry.id }}</h1>
+
+  {% if entry.deleted_at %}
+    <p class="warning-note">Dieser Eintrag wurde am {{ entry.deleted_at|datetime_de }} gelöscht und wird in Listen ausgeblendet.</p>
+  {% endif %}
+
+  <p><strong>Raum:</strong> {{ entry.room_name }}</p>
+  <p><strong>Name:</strong> {{ entry.person_name }}</p>
+  <p><strong>Haus:</strong> {{ entry.house }}</p>
+  <p><strong>Zustand:</strong> {{ entry.condition or "Nicht erfasst" }}</p>
+  <p><strong>Zeit:</strong> {{ entry.started_at|datetime_de }}</p>
+  <p><strong>Bemerkung:</strong> {{ entry.remark or "—" }}</p>
+
+  <h2>Bilder</h2>
+
+  {% if images %}
+    <div class="gallery">
+      {% for img in images %}
+        <a href="/uploads/{{ img.filename }}">
+          <img src="/uploads/{{ img.filename }}" alt="{{ img.original_filename }}">
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>Keine Bilder hochgeladen.</p>
+  {% endif %}
+
+  <div class="detail-actions">
+    <a href="/admin">Zurück zur Übersicht</a>
+
+    {% if not entry.deleted_at %}
+      <form method="post" action="/admin/session/{{ entry.id }}/delete" onsubmit="return confirm('Diesen Eintrag wirklich löschen? Er bleibt intern in der Datenbank erhalten.');">
+        <button class="danger-button" type="submit">Eintrag löschen</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

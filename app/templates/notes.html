@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Anmerkungen{% endblock %}
+
+{% block content %}
+<section class="card">
+  {% include "theme_toggle.html" %}
+  <h1>Anmerkungen</h1>
+  <p class="muted">Hier kannst du Fragen, Verbesserungsvorschläge oder sonstige Hinweise hinterlassen.</p>
+
+  {% if saved %}
+    <p class="success-note">Danke, deine Anmerkung wurde gespeichert.</p>
+  {% endif %}
+
+  <form method="post" action="/anmerkungen">
+    <label>
+      Name
+      <input name="person_name" autocomplete="name" placeholder="{{ name_placeholder }}">
+    </label>
+
+    <label>
+      Nachricht
+      <textarea name="note" rows="6" required placeholder="Was möchtest du loswerden?"></textarea>
+    </label>
+
+    <button type="submit">Anmerkung speichern</button>
+  </form>
+
+  {% if entries %}
+    <h2>Letzte Anmerkungen</h2>
+    <div class="note-list">
+      {% for entry in entries %}
+        <article class="note-entry">
+          {% if entry.person_name %}
+            <strong>{{ entry.person_name }}</strong>
+          {% endif %}
+          <p>{{ entry.note }}</p>
+          <time>{{ entry.created_at }}</time>
+        </article>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <p><a href="/r/werkstatt">Zurück zum Formular</a></p>
+</section>
+{% endblock %}
