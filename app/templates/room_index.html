@@ -4,16 +4,24 @@
 {% block content %}
 <section class="card">
   <h1>Räume</h1>
-  <p class="muted">Wähle den Bereich aus, den du für Zelter5 dokumentieren möchtest.</p>
 
   <div class="room-grid">
     {% for room in rooms %}
-      <article class="room-card">
+      <article class="room-card room-card-clickable clickable-row" data-href="/r/{{ room.slug }}" tabindex="0">
+        <div class="room-card-top">
+          <details class="room-card-menu" data-card-menu>
+            <summary class="room-card-menu-trigger" aria-label="Aktionen für {{ room.name }}">
+              <span aria-hidden="true">⋯</span>
+            </summary>
+            <div class="room-card-menu-panel">
+              <a class="room-card-menu-item" href="/r/{{ room.slug }}/qr.pdf" download>QR-Code herunterladen</a>
+            </div>
+          </details>
+        </div>
         <div class="room-card-copy">
           <h2>{{ room.name }}</h2>
           <p>{{ room.description }}</p>
         </div>
-        <a class="button" href="/r/{{ room.slug }}">Zum Formular</a>
       </article>
     {% endfor %}
   </div>

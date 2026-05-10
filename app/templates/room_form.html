@@ -33,8 +33,10 @@
       <legend>{{ room.condition_label }}</legend>
       <div class="radio-group condition-group">
         {% for condition in conditions %}
-          <label class="radio-option">
-            <input type="radio" name="condition" value="{{ condition }}" required {% if loop.first %}checked{% endif %}>
+          <label class="radio-option
+            {% if condition == 'Sauber' %}condition-option-clean{% elif condition == 'Aufräumen nötig' %}condition-option-warning{% elif condition == 'Problem/Defekt' %}condition-option-problem{% endif %}
+          ">
+            <input type="radio" name="condition" value="{{ condition }}" required>
             <span>{{ condition }}</span>
           </label>
         {% endfor %}

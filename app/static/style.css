@@ -51,7 +51,7 @@ body {
 }
 
 .page {
-  width: min(960px, 100%);
+  width: min(1300px, 100%);
   margin: 0 auto;
   padding: 24px 16px;
 }
@@ -133,6 +133,7 @@ body {
 }
 
 .room-card {
+  position: relative;
   display: grid;
   gap: 14px;
   align-content: space-between;
@@ -143,11 +144,30 @@ body {
     radial-gradient(circle at top right, rgba(22, 163, 74, 0.08), transparent 28%),
     var(--control-bg);
   box-shadow: 0 8px 24px var(--shadow);
+  overflow: visible;
+}
+
+.room-card-clickable {
+  cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out);
+}
+
+.room-card-clickable:hover,
+.room-card-clickable:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px var(--shadow);
 }
 
 .room-card-copy {
   display: grid;
   gap: 8px;
+}
+
+.room-card-top {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 6;
 }
 
 .room-card h2 {
@@ -159,6 +179,76 @@ body {
   margin: 0;
   color: var(--soft-text);
   line-height: 1.45;
+}
+
+.room-card-menu {
+  position: relative;
+}
+
+.room-card-menu summary {
+  list-style: none;
+}
+
+.room-card-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.room-card-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out), opacity var(--motion-fast) var(--ease-out);
+}
+
+.room-card-menu-trigger:hover,
+.room-card-menu[open] .room-card-menu-trigger {
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.room-card-menu-trigger:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.room-card-menu-trigger span {
+  font-size: 1.5rem;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.room-card-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  min-width: 220px;
+  border: 1px solid var(--row-border);
+  border-radius: 14px;
+  padding: 8px;
+  background: var(--card-bg);
+  box-shadow: 0 16px 30px var(--shadow);
+}
+
+.room-card-menu-item {
+  display: block;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.room-card-menu-item:hover {
+  background: color-mix(in srgb, var(--card-bg) 72%, var(--page-bg));
 }
 
 .filter-bar {
@@ -570,7 +660,7 @@ legend {
   background: var(--control-bg);
   text-align: center;
   cursor: pointer;
-  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 
 .radio-option span:hover {
@@ -587,6 +677,45 @@ legend {
 .radio-option input:focus-visible + span {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
+}
+
+.condition-option-clean input:checked + span {
+  border-color: rgba(22, 163, 74, 0.55);
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.18), rgba(22, 163, 74, 0.34));
+  color: #166534;
+  box-shadow: 0 10px 24px rgba(22, 163, 74, 0.16);
+}
+
+.condition-option-warning input:checked + span {
+  border-color: rgba(217, 119, 6, 0.6);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.3));
+  color: #9a3412;
+  box-shadow: 0 10px 24px rgba(217, 119, 6, 0.16);
+}
+
+.condition-option-problem input:checked + span {
+  border-color: rgba(220, 38, 38, 0.55);
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.18), rgba(220, 38, 38, 0.28));
+  color: #991b1b;
+  box-shadow: 0 10px 24px rgba(220, 38, 38, 0.16);
+}
+
+:root[data-theme="dark"] .condition-option-clean input:checked + span {
+  border-color: rgba(134, 239, 172, 0.36);
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.24), rgba(34, 197, 94, 0.34));
+  color: #dcfce7;
+}
+
+:root[data-theme="dark"] .condition-option-warning input:checked + span {
+  border-color: rgba(252, 211, 77, 0.34);
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.24), rgba(245, 158, 11, 0.34));
+  color: #fef3c7;
+}
+
+:root[data-theme="dark"] .condition-option-problem input:checked + span {
+  border-color: rgba(252, 165, 165, 0.32);
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.24), rgba(248, 113, 113, 0.32));
+  color: #fee2e2;
 }
 
 input,
@@ -786,7 +915,6 @@ button:active,
 }
 
 .mobile-entry-list {
-  display: grid;
   gap: 12px;
   margin-top: 18px;
 }
@@ -1046,6 +1174,7 @@ button:active,
   color: var(--soft-text);
   font-size: 0.85rem;
   font-weight: 650;
+  white-space: nowrap;
   transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
 }
 

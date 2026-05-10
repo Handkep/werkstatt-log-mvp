@@ -45,7 +45,26 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from io import BytesIO
+from urllib.parse import quote
 
+import qrcode
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
+
+from fastapi.responses import StreamingResponse
+
+from html import escape
+
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.platypus import Paragraph
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.colors import HexColor
+from fontTools.ttLib import TTCollection
 # -----------------------------------------------------------------------------
 # Pfade, Verzeichnisse und globale App-Konfiguration
 # -----------------------------------------------------------------------------
@@ -650,6 +669,290 @@ def now_iso() -> str:
     """Gibt die aktuelle UTC-Zeit als ISO-String ohne Mikrosekunden zurück."""
 
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+FONT_DIR = BASE_DIR / "static" / "fonts"
+
+
+def find_ttc_subfont_index(ttc_path: Path, wanted_style: str) -> int | None:
+    """
+    Sucht in einer .ttc-Datei den Index eines bestimmten Schriftschnitts,
+    z. B. Regular, SemiBold oder Bold.
+    """
+    collection = TTCollection(str(ttc_path))
+
+    for index, font in enumerate(collection.fonts):
+        styles = []
+
+        for name in font["name"].names:
+            if name.nameID in {2, 4}:  # 2 = Subfamily/Style, 4 = Full font name
+                try:
+                    styles.append(name.toUnicode())
+                except UnicodeDecodeError:
+                    pass
+
+        joined = " ".join(styles).lower()
+
+        if wanted_style.lower() in joined:
+            return index
+
+    return None
+
+
+def register_pdf_fonts() -> dict:
+    inter_ttc = FONT_DIR / "Inter.ttc"
+
+    if inter_ttc.exists():
+        regular_index = find_ttc_subfont_index(inter_ttc, "Regular")
+        semibold_index = find_ttc_subfont_index(inter_ttc, "SemiBold")
+        bold_index = find_ttc_subfont_index(inter_ttc, "Bold")
+
+        if regular_index is not None and semibold_index is not None and bold_index is not None:
+            try:
+                pdfmetrics.registerFont(
+                    TTFont("Inter-Regular", str(inter_ttc), subfontIndex=regular_index)
+                )
+                pdfmetrics.registerFont(
+                    TTFont("Inter-SemiBold", str(inter_ttc), subfontIndex=semibold_index)
+                )
+                pdfmetrics.registerFont(
+                    TTFont("Inter-Bold", str(inter_ttc), subfontIndex=bold_index)
+                )
+                pdfmetrics.registerFontFamily(
+                    "Inter",
+                    normal="Inter-Regular",
+                    bold="Inter-Bold",
+                    italic="Inter-Regular",
+                    boldItalic="Inter-Bold",
+                )
+
+                return {
+                    "regular": "Inter-Regular",
+                    "semibold": "Inter-SemiBold",
+                    "bold": "Inter-Bold",
+                }
+            except Exception:
+                logger.exception("Inter-PDF-Schriften konnten nicht registriert werden.")
+
+    return {
+        "regular": "Helvetica",
+        "semibold": "Helvetica-Bold",
+        "bold": "Helvetica-Bold",
+    }
+
+
+PDF_FONTS = register_pdf_fonts()
+
+
+def public_room_url(request: Request, room_slug: str) -> str:
+    """
+    Baut die öffentliche URL für einen Raum.
+
+    Wenn PUBLIC_BASE_URL gesetzt ist, wird diese Basis-URL verwendet.
+    Das ist wichtig im Produktivbetrieb hinter Docker/Caddy/Nginx.
+    """
+    public_base_url = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+
+    if public_base_url:
+        return f"{public_base_url}/r/{quote(room_slug, safe='')}"
+
+    return str(request.url_for("room_form", room_slug=room_slug))
+
+
+def make_qr_image(data: str):
+    """
+    Erzeugt ein QR-Code-Bild für den übergebenen Text bzw. die URL.
+    """
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+
+    return qr.make_image(fill_color="black", back_color="white").convert("RGB")
+
+
+def draw_centered_text(pdf_canvas: canvas.Canvas, text: str, y: float, font: str, size: int) -> None:
+    """
+    Zeichnet eine Textzeile horizontal zentriert auf eine A4-PDF-Seite.
+    """
+    page_width, _ = A4
+    pdf_canvas.setFont(font, size)
+    text_width = pdf_canvas.stringWidth(text, font, size)
+    pdf_canvas.drawString((page_width - text_width) / 2, y, text)
+
+def draw_paragraph(
+    pdf_canvas: canvas.Canvas,
+    text: str,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    *,
+    font_name: str = "Helvetica",
+    font_size: int = 11,
+    leading: int | None = None,
+    alignment=TA_CENTER,
+    text_color="#111827",
+) -> None:
+    """
+    Zeichnet einen mehrzeiligen Textblock mit sauberem Umbruch.
+
+    Args:
+        pdf_canvas: ReportLab-Zeichenfläche.
+        text: Textinhalt. Normale Newlines werden zu <br/> umgewandelt.
+        x: Linke X-Position des Textblocks.
+        y: Untere Y-Position des Textblocks.
+        width: Breite des Textblocks.
+        height: Maximale Höhe des Textblocks.
+        font_name: Registrierter ReportLab-Font.
+        font_size: Schriftgröße in pt.
+        leading: Zeilenhöhe in pt. Wenn None, wird font_size * 1.35 verwendet.
+        alignment: TA_CENTER oder TA_LEFT.
+        text_color: Textfarbe als Hex-Wert.
+    """
+    if leading is None:
+        leading = int(font_size * 1.35)
+
+    safe_text = escape(text).replace("\n", "<br/>")
+
+    style = ParagraphStyle(
+        name="PdfParagraph",
+        fontName=font_name,
+        fontSize=font_size,
+        leading=leading,
+        alignment=alignment,
+        textColor=HexColor(text_color),
+        spaceAfter=0,
+        spaceBefore=0,
+    )
+
+    paragraph = Paragraph(safe_text, style)
+    paragraph.wrapOn(pdf_canvas, width, height)
+    paragraph.drawOn(pdf_canvas, x, y)
+
+def build_room_qr_pdf(room: dict, room_url: str) -> bytes:
+    """
+    Erstellt ein einseitiges PDF mit QR-Code für einen Raum.
+    """
+    buffer = BytesIO()
+    pdf_canvas = canvas.Canvas(buffer, pagesize=A4)
+    page_width, page_height = A4
+
+    room_name = room.get("name", "Raum")
+    pdf_canvas.setTitle(f"QR-Code {room_name} - Zelter5 Raumlog")
+
+    draw_centered_text(
+        pdf_canvas,
+        "Zelter5 Raumlog",
+        page_height - 35 * mm,
+        PDF_FONTS["bold"],
+        40,
+    )
+
+    draw_centered_text(
+        pdf_canvas,
+        f"{room_name}",
+        page_height - 48 * mm,
+        PDF_FONTS["regular"],
+        15,
+    )
+
+    qr_image = make_qr_image(room_url)
+
+    qr_size = 120 * mm
+    qr_x = (page_width - qr_size) / 2
+    qr_y = page_height - 190 * mm
+
+    pdf_canvas.drawImage(
+        ImageReader(qr_image),
+        qr_x,
+        qr_y,
+        width=qr_size,
+        height=qr_size,
+        preserveAspectRatio=True,
+        mask="auto",
+    )
+
+    intro_text = (
+        "Damit die Werkstatt sauber und ordentlich bleibt, bitten wir dich,\n"
+        "vor der Nutzung den QR-Code zu scannen und das Formular auszufüllen."
+    )
+
+    draw_paragraph(
+        pdf_canvas,
+        intro_text,
+        32 * mm,
+        qr_y - 26 * mm,
+        page_width - 64 * mm,
+        24 * mm,
+        font_name=PDF_FONTS["bold"],
+        font_size=11,
+        leading=15,
+        alignment=TA_CENTER,
+        text_color="#374151",
+    )
+
+
+    # draw_centered_text(
+    #     pdf_canvas,
+    #     "Bitte im jeweiligen Raum gut sichtbar anbringen.",
+    #     22 * mm,
+    #     "Helvetica",
+    #     10,
+    # )
+
+    pdf_canvas.showPage()
+    pdf_canvas.save()
+
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def safe_download_slug(value: str) -> str:
+    """
+    Erzeugt einen einfachen Dateinamenbestandteil für den PDF-Download.
+    """
+    cleaned = "".join(char for char in value if char.isalnum() or char in {"-", "_"})
+    return cleaned or "raum"
+# -----------------------------------------------------------------------------
+# 4. Neue Route ergänzen
+#    Gute Stelle: nach room_form() oder bei den öffentlichen Seiten.
+# -----------------------------------------------------------------------------
+
+
+@app.get("/r/{room_slug}/qr.pdf")
+def room_qr_pdf(request: Request, room_slug: str):
+    """
+    Erstellt und liefert ein PDF mit QR-Code für einen bestimmten Raum.
+
+    Beispiel:
+        /r/werkstatt/qr.pdf
+        /r/dachterrasse/qr.pdf
+    """
+
+    with db_connect() as conn:
+        room = load_room_by_slug(conn, room_slug)
+
+    if room is None:
+        return HTMLResponse("Raum nicht gefunden", status_code=404)
+
+    room_url = public_room_url(request, room_slug)
+    pdf_bytes = build_room_qr_pdf(room, room_url)
+
+    filename = f"zelter5-qr-{safe_download_slug(room_slug)}.pdf"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+    }
+
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers=headers,
+    )
 
 
 def env_flag(name: str, default: bool = False) -> bool:

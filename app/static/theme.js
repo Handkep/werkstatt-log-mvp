@@ -39,7 +39,7 @@ document.querySelectorAll(".file-input").forEach((input) => {
 
 document.querySelectorAll(".clickable-row").forEach((row) => {
   function eventStartedInControl(event) {
-    return Boolean(event.target.closest("a, button, input, textarea, select"));
+    return Boolean(event.target.closest("a, button, input, textarea, select, summary, [data-card-menu]"));
   }
 
   row.addEventListener("click", (event) => {
@@ -57,6 +57,14 @@ document.querySelectorAll(".clickable-row").forEach((row) => {
 
     if (event.key === "Enter") {
       window.location.href = row.dataset.href;
+    }
+  });
+});
+
+document.addEventListener("click", (event) => {
+  document.querySelectorAll("[data-card-menu][open]").forEach((menu) => {
+    if (!menu.contains(event.target)) {
+      menu.removeAttribute("open");
     }
   });
 });
