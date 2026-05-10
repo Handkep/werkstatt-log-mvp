@@ -59,9 +59,64 @@ WORKSHOP_CONDITIONS = [
     "Problem/Defekt",
 ]
 
+NAV_GROUPS = {
+    "public": [
+        {"id": "form", "label": "Formular", "href": "/r/werkstatt"},
+        {"id": "recent", "label": "Letzte Buchungen", "href": "/letzte-buchungen"},
+        {"id": "notes", "label": "Anmerkungen", "href": "/anmerkungen"},
+    ],
+    "admin": [
+        {"id": "admin", "label": "Admin", "href": "/admin"},
+    ],
+    "meta": [
+        {"id": "privacy", "label": "Datenschutz", "href": "/datenschutz"},
+    ],
+}
+
 
 def random_name_placeholder():
     return f"z. B. {random.choice(FUNNY_NAME_EXAMPLES)}"
+
+
+def build_nav(nav_section: str, nav_current: str):
+    nav_groups = []
+    visible_items = []
+
+    for section_id, items in NAV_GROUPS.items():
+        nav_items = []
+
+        for item in items:
+            nav_item = {
+                **item,
+                "section": section_id,
+                "is_current": nav_current == item["id"],
+            }
+            nav_items.append(nav_item)
+
+            if section_id != "meta":
+                visible_items.append(nav_item)
+
+        nav_groups.append(
+            {
+                "id": section_id,
+                "label": section_id,
+                "items": nav_items,
+                "is_current_section": nav_section == section_id,
+            }
+        )
+
+    return {"nav_groups": nav_groups, "nav_items": visible_items}
+
+
+def page_context(request: Request, nav_section: str, nav_current: str, **kwargs):
+    return {
+        "request": request,
+        "nav_section": nav_section,
+        "nav_current": nav_current,
+        "site_title": "Zelter5 Raumlog",
+        **build_nav(nav_section, nav_current),
+        **kwargs,
+    }
 
 
 def datetime_de(value):
@@ -244,13 +299,15 @@ def room_form(request: Request, room_slug: str):
 
     return templates.TemplateResponse(
         "room_form.html",
-        {
-            "request": request,
-            "room": room,
-            "house_groups": ["TH", "GH", "PH"],
-            "conditions": WORKSHOP_CONDITIONS,
-            "name_placeholder": random_name_placeholder(),
-        },
+        page_context(
+            request,
+            "public",
+            "form",
+            room=room,
+            house_groups=["TH", "GH", "PH"],
+            conditions=WORKSHOP_CONDITIONS,
+            name_placeholder=random_name_placeholder(),
+        ),
     )
 
 
@@ -347,7 +404,7 @@ async def submit_usage(
 
 @app.get("/thanks", response_class=HTMLResponse)
 def thanks(request: Request):
-    return templates.TemplateResponse("thanks.html", {"request": request})
+    return templates.TemplateResponse("thanks.html", page_context(request, "public", "form"))
 
 
 @app.get("/anmerkungen", response_class=HTMLResponse)
@@ -363,12 +420,14 @@ def notes(request: Request):
 
     return templates.TemplateResponse(
         "notes.html",
-        {
-            "request": request,
-            "entries": entries,
-            "saved": request.query_params.get("gespeichert") == "1",
-            "name_placeholder": random_name_placeholder(),
-        },
+        page_context(
+            request,
+            "public",
+            "notes",
+            entries=entries,
+            saved=request.query_params.get("gespeichert") == "1",
+            name_placeholder=random_name_placeholder(),
+        ),
     )
 
 
@@ -394,7 +453,7 @@ def submit_note(person_name: str = Form(""), note: str = Form(...)):
 
 @app.get("/datenschutz", response_class=HTMLResponse)
 def privacy(request: Request):
-    return templates.TemplateResponse("privacy.html", {"request": request})
+    return templates.TemplateResponse("privacy.html", page_context(request, "meta", "privacy"))
 
 
 @app.get("/letzte-buchungen", response_class=HTMLResponse)
@@ -429,10 +488,12 @@ def recent_bookings(request: Request):
 
     return templates.TemplateResponse(
         "recent_bookings.html",
-        {
-            "request": request,
-            "entries": entries,
-        },
+        page_context(
+            request,
+            "public",
+            "recent",
+            entries=entries,
+        ),
     )
 
 
@@ -468,10 +529,12 @@ def admin(request: Request):
 
     return templates.TemplateResponse(
         "admin.html",
-        {
-            "request": request,
-            "entries": entries,
-        },
+        page_context(
+            request,
+            "admin",
+            "admin",
+            entries=entries,
+        ),
     )
 
 
@@ -510,11 +573,13 @@ def session_detail(request: Request, session_id: int):
 
     return templates.TemplateResponse(
         "session_detail.html",
-        {
-            "request": request,
-            "entry": entry,
-            "images": images,
-        },
+        page_context(
+            request,
+            "admin",
+            "admin",
+            entry=entry,
+            images=images,
+        ),
     )
 
 

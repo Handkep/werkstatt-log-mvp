@@ -1,0 +1,21 @@
+<header class="site-header">
+  <div class="site-header-top">
+    <a class="site-brand" href="/r/werkstatt">
+      <span class="site-brand-kicker">Zelter5</span>
+      <strong>{{ site_title }}</strong>
+    </a>
+    {% include "theme_toggle.html" %}
+  </div>
+
+  <nav class="site-nav" aria-label="Hauptnavigation">
+    {% for item in nav_items %}
+      <a
+        class="site-nav-link{% if item.is_current %} is-current{% endif %}{% if item.section == 'admin' %} is-admin{% endif %}"
+        href="{{ item.href }}"
+        {% if item.is_current %}aria-current="page"{% endif %}
+      >
+        {{ item.label }}
+      </a>
+    {% endfor %}
+  </nav>
+</header>
