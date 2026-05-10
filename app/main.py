@@ -1,35 +1,84 @@
+"""
+Zelter5 Raumlog
+================
+
+Kleine FastAPI-Webanwendung zur Dokumentation der Nutzung gemeinsamer Räume
+(z. B. Werkstatt, Dachterrasse, Sommerküche, Sauna, Ruheraum).
+
+Kernfunktionen:
+- Anzeige aller aktiven Räume
+- QR-/Direktlink-Formular pro Raum
+- Speicherung von Nutzungs-Einträgen in SQLite
+- optionaler Upload von Bildern pro Eintrag
+- allgemeine Anmerkungen
+- einfache Admin-Ansicht mit Detailansicht und Soft-Delete
+- optionale E-Mail-Benachrichtigung per SMTP
+
+Datenhaltung:
+- SQLite-Datenbank unter DATA_DIR/app.db
+- Uploads unter DATA_DIR/uploads
+- DATA_DIR kann per Umgebungsvariable gesetzt werden
+
+Wichtige Hinweise:
+- Die Anwendung ist bewusst klein gehalten und verwendet SQLite direkt.
+- Admin-Routen sind aktuell nicht geschützt. Für produktive Nutzung sollte
+  mindestens Basic Auth, Reverse-Proxy-Auth oder ein Login ergänzt werden.
+- Upload-Dateien werden anhand von Content-Type und Dateiendung grob geprüft,
+  aber nicht inhaltlich validiert oder neu enkodiert.
+"""
+
+import json
 import logging
 import os
+import random
+import shutil
+import sqlite3
 import smtplib
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
-from datetime import datetime, timezone
 from uuid import uuid4
 from zoneinfo import ZoneInfo
-import random
-import sqlite3
-import shutil
 
-from fastapi import FastAPI, Request, Form, File, UploadFile
-from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse
+from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import json
 
 
+# -----------------------------------------------------------------------------
+# Pfade, Verzeichnisse und globale App-Konfiguration
+# -----------------------------------------------------------------------------
+
+# Verzeichnis dieser Python-Datei, typischerweise z. B. app/main.py.
 BASE_DIR = Path(__file__).resolve().parent
+
+# DATA_DIR enthält Datenbank und Uploads. In Docker kann dieser Pfad per
+# Environment-Variable auf ein persistentes Volume gelegt werden.
 DATA_DIR = Path(os.environ.get("DATA_DIR", BASE_DIR.parent / "data"))
 DB_PATH = DATA_DIR / "app.db"
 UPLOAD_DIR = DATA_DIR / "uploads"
+
 logger = logging.getLogger("werkstatt_log")
 
+# Sicherstellen, dass Daten- und Upload-Verzeichnis existieren.
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Zelter5 Raumlog")
+
+# Jinja2 lädt HTML-Templates aus dem templates/-Ordner neben dieser Datei.
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+# Statische Dateien wie CSS, JS oder Bilder werden unter /static ausgeliefert.
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
+
+# -----------------------------------------------------------------------------
+# Statische UI-/Formular-Daten
+# -----------------------------------------------------------------------------
+
+# Namensvorschläge für Platzhalter im Formular. Rein kosmetisch.
 FUNNY_NAME_EXAMPLES = [
     "Albert Einstein",
     "Isaac Newton",
@@ -51,15 +100,19 @@ FUNNY_NAME_EXAMPLES = [
     "Alexander Fleming",
     "Carl Friedrich Gauß",
     "Niels Bohr",
-
 ]
 
+# Erlaubte Zustandswerte. Diese Werte werden sowohl im Formular angezeigt
+# als auch beim Absenden serverseitig validiert.
 WORKSHOP_CONDITIONS = [
     "Sauber",
     "Aufräumen nötig",
     "Problem/Defekt",
 ]
 
+# Vordefinierte Räume. Beim Start werden diese in die DB geschrieben oder
+# aktualisiert. Dadurch kann die Raumkonfiguration später in der DB abgefragt
+# werden, bleibt aber zunächst einfach im Code pflegbar.
 ROOM_DEFINITIONS = [
     {
         "slug": "werkstatt",
@@ -163,6 +216,8 @@ ROOM_DEFINITIONS = [
     },
 ]
 
+# Navigation wird zentral definiert, damit Templates nicht hart verdrahtet
+# wissen müssen, welche Links existieren.
 NAV_GROUPS = {
     "public": [
         {"id": "rooms", "label": "Räume", "href": "/"},
@@ -178,11 +233,28 @@ NAV_GROUPS = {
 }
 
 
-def random_name_placeholder():
+# -----------------------------------------------------------------------------
+# Kleine Hilfsfunktionen für UI, JSON-Felder und Template-Kontext
+# -----------------------------------------------------------------------------
+
+
+def random_name_placeholder() -> str:
+    """Erzeugt einen zufälligen Beispielnamen für Formular-Platzhalter."""
+
     return f"z. B. {random.choice(FUNNY_NAME_EXAMPLES)}"
 
 
-def parse_json_list(raw_value: str | None):
+def parse_json_list(raw_value: str | None) -> list:
+    """
+    Liest eine JSON-Liste aus einem String.
+
+    Wird für Felder verwendet, die in SQLite als TEXT gespeichert werden,
+    logisch aber Listen sind, z. B. checklist_items_json oder extra_fields_json.
+
+    Fehlerhafte oder leere Werte werden bewusst als leere Liste behandelt,
+    damit kaputte Konfigurationsdaten nicht direkt die ganze Seite crashen.
+    """
+
     if not raw_value:
         return []
 
@@ -194,14 +266,24 @@ def parse_json_list(raw_value: str | None):
     return value if isinstance(value, list) else []
 
 
-def hydrate_room(row):
+def hydrate_room(row: sqlite3.Row) -> dict:
+    """
+    Konvertiert einen Raum-Datensatz aus SQLite in ein Template-freundliches Dict.
+
+    Die JSON-Textspalten werden dabei in echte Python-Listen umgewandelt:
+    - checklist_items_json -> checklist_items
+    - extra_fields_json -> extra_fields
+    """
+
     room = dict(row)
     room["checklist_items"] = parse_json_list(room.get("checklist_items_json"))
     room["extra_fields"] = parse_json_list(room.get("extra_fields_json"))
     return room
 
 
-def load_active_rooms(conn):
+def load_active_rooms(conn: sqlite3.Connection) -> list[dict]:
+    """Lädt alle aktiven Räume sortiert nach sort_order und Name."""
+
     rows = conn.execute(
         """
         SELECT *
@@ -213,7 +295,9 @@ def load_active_rooms(conn):
     return [hydrate_room(row) for row in rows]
 
 
-def load_room_by_slug(conn, room_slug: str):
+def load_room_by_slug(conn: sqlite3.Connection, room_slug: str) -> dict | None:
+    """Lädt einen aktiven Raum anhand seines Slugs, z. B. 'werkstatt'."""
+
     row = conn.execute(
         "SELECT * FROM rooms WHERE slug = ? AND is_active = 1",
         (room_slug,),
@@ -221,7 +305,18 @@ def load_room_by_slug(conn, room_slug: str):
     return hydrate_room(row) if row is not None else None
 
 
-def read_extra_field_values(room, form_data):
+def read_extra_field_values(room: dict, form_data) -> dict:
+    """
+    Liest und validiert dynamische Zusatzfelder aus einem Formular.
+
+    Zusatzfelder werden pro Raum über room['extra_fields'] definiert. Aktuell
+    werden Textfelder und Select-Felder unterstützt. Pflichtfelder werden
+    serverseitig geprüft.
+
+    Raises:
+        ValueError: Wenn ein Pflichtfeld fehlt oder ein Select-Wert ungültig ist.
+    """
+
     values = {}
 
     for field in room.get("extra_fields", []):
@@ -230,6 +325,8 @@ def read_extra_field_values(room, form_data):
         field_type = field.get("type", "text")
         required = bool(field.get("required"))
 
+        # Ohne technischen Feldnamen kann das Feld nicht aus dem Formular
+        # gelesen werden, daher wird es ignoriert.
         if not field_name:
             continue
 
@@ -239,6 +336,8 @@ def read_extra_field_values(room, form_data):
         if required and not value:
             raise ValueError(f"{field_label} fehlt")
 
+        # Select-Felder dürfen nur Werte annehmen, die in der Raumdefinition
+        # explizit erlaubt sind. Das schützt gegen manipulierte Formulare.
         if value and field_type == "select":
             options = field.get("options", [])
             option_values = {option.get("value", "") for option in options}
@@ -251,7 +350,14 @@ def read_extra_field_values(room, form_data):
     return values
 
 
-def display_extra_fields(room, raw_values: str | None):
+def display_extra_fields(room: dict, raw_values: str | None) -> list[dict]:
+    """
+    Bereitet gespeicherte Zusatzfelder für die Anzeige in Templates auf.
+
+    Aus dem gespeicherten JSON-Dict wird eine Liste aus Label/Wert-Paaren,
+    damit Templates keine Kenntnis über die interne JSON-Struktur brauchen.
+    """
+
     values = {}
     if raw_values:
         try:
@@ -271,7 +377,18 @@ def display_extra_fields(room, raw_values: str | None):
     return entries
 
 
-def build_nav(nav_section: str, nav_current: str):
+def build_nav(nav_section: str, nav_current: str) -> dict:
+    """
+    Erstellt Navigationsdaten für Templates.
+
+    Args:
+        nav_section: Aktiver Navigationsbereich, z. B. 'public' oder 'admin'.
+        nav_current: Aktiver Menüpunkt, z. B. 'rooms' oder 'recent'.
+
+    Returns:
+        Dict mit gruppierter Navigation und sichtbaren Haupt-Navigationseinträgen.
+    """
+
     nav_groups = []
     visible_items = []
 
@@ -286,6 +403,8 @@ def build_nav(nav_section: str, nav_current: str):
             }
             nav_items.append(nav_item)
 
+            # Meta-Seiten wie Datenschutz werden nicht in der Hauptnavigation
+            # angezeigt, bleiben aber als Gruppe verfügbar.
             if section_id != "meta":
                 visible_items.append(nav_item)
 
@@ -301,7 +420,18 @@ def build_nav(nav_section: str, nav_current: str):
     return {"nav_groups": nav_groups, "nav_items": visible_items}
 
 
-def page_context(request: Request, nav_section: str, nav_current: str, **kwargs):
+def page_context(request: Request, nav_section: str, nav_current: str, **kwargs) -> dict:
+    """
+    Baut den gemeinsamen Template-Kontext für alle Seiten.
+
+    Dadurch bekommen alle Templates konsistent Zugriff auf:
+    - request
+    - Navigation
+    - aktiven Navigationspunkt
+    - Seitentitel
+    - zusätzliche seitenspezifische Werte über **kwargs
+    """
+
     return {
         "request": request,
         "nav_section": nav_section,
@@ -313,6 +443,14 @@ def page_context(request: Request, nav_section: str, nav_current: str, **kwargs)
 
 
 def datetime_de(value):
+    """
+    Jinja2-Filter: ISO-Zeitstempel in deutsches Datumsformat umwandeln.
+
+    Erwartet ISO-Strings, die mit datetime.fromisoformat lesbar sind.
+    Ungültige Werte werden unverändert zurückgegeben, damit Templates robust
+    bleiben.
+    """
+
     try:
         parsed = datetime.fromisoformat(value)
     except (TypeError, ValueError):
@@ -321,10 +459,24 @@ def datetime_de(value):
     return parsed.astimezone(ZoneInfo("Europe/Berlin")).strftime("%d.%m.%Y, %H:%M")
 
 
+# Filter im Jinja2-Environment registrieren, nutzbar als {{ value|datetime_de }}.
 templates.env.filters["datetime_de"] = datetime_de
 
 
-def db_connect():
+# -----------------------------------------------------------------------------
+# Datenbankzugriff und Initialisierung
+# -----------------------------------------------------------------------------
+
+
+def db_connect() -> sqlite3.Connection:
+    """
+    Erstellt eine SQLite-Verbindung mit sinnvollen Grundeinstellungen.
+
+    row_factory=sqlite3.Row erlaubt Zugriff auf Spalten per Name.
+    PRAGMA foreign_keys=ON aktiviert Fremdschlüsselprüfung in SQLite.
+    PRAGMA journal_mode=WAL verbessert parallele Lesezugriffe und Robustheit.
+    """
+
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
@@ -332,7 +484,20 @@ def db_connect():
     return conn
 
 
-def init_db():
+def init_db() -> None:
+    """
+    Erstellt oder migriert die SQLite-Datenbank.
+
+    Die Funktion ist bewusst einfach gehalten:
+    - Tabellen werden mit CREATE TABLE IF NOT EXISTS angelegt.
+    - Fehlende Spalten werden per ALTER TABLE ergänzt.
+    - Räume aus ROOM_DEFINITIONS werden per UPSERT synchronisiert.
+
+    Für größere Projekte wäre ein Migrationswerkzeug wie Alembic sauberer.
+    Für diese kleine Anwendung ist diese Variante aber unkompliziert und gut
+    nachvollziehbar.
+    """
+
     with db_connect() as conn:
         conn.executescript(
             """
@@ -384,6 +549,7 @@ def init_db():
             """
         )
 
+        # Einfache additive Migration für die rooms-Tabelle.
         room_columns = conn.execute("PRAGMA table_info(rooms)").fetchall()
         room_column_names = {column["name"] for column in room_columns}
         room_column_specs = {
@@ -402,11 +568,13 @@ def init_db():
             if column_name not in room_column_names:
                 conn.execute(f"ALTER TABLE rooms ADD COLUMN {column_name} {column_type}")
 
+        # Migration für ältere DB-Versionen der allgemeinen Anmerkungen.
         columns = conn.execute("PRAGMA table_info(general_notes)").fetchall()
         column_names = {column["name"] for column in columns}
         if "person_name" not in column_names:
             conn.execute("ALTER TABLE general_notes ADD COLUMN person_name TEXT")
 
+        # Migration für ältere DB-Versionen der Nutzungs-Einträge.
         columns = conn.execute("PRAGMA table_info(usage_sessions)").fetchall()
         column_names = {column["name"] for column in columns}
         if "condition" not in column_names:
@@ -416,6 +584,8 @@ def init_db():
         if "deleted_at" not in column_names:
             conn.execute("ALTER TABLE usage_sessions ADD COLUMN deleted_at TEXT")
 
+        # Vordefinierte Räume synchronisieren. ON CONFLICT(slug) aktualisiert
+        # bestehende Räume, ohne alte Nutzungsdaten zu verlieren.
         for room in ROOM_DEFINITIONS:
             conn.execute(
                 """
@@ -465,15 +635,31 @@ def init_db():
 
 
 @app.on_event("startup")
-def on_startup():
+def on_startup() -> None:
+    """Initialisiert die Datenbank beim Start der FastAPI-Anwendung."""
+
     init_db()
 
 
-def now_iso():
+# -----------------------------------------------------------------------------
+# Zeit, Environment-Flags und E-Mail-Benachrichtigung
+# -----------------------------------------------------------------------------
+
+
+def now_iso() -> str:
+    """Gibt die aktuelle UTC-Zeit als ISO-String ohne Mikrosekunden zurück."""
+
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def env_flag(name: str, default: bool = False) -> bool:
+    """
+    Liest eine boolesche Environment-Variable.
+
+    Als True gelten: 1, true, yes, on.
+    Nicht gesetzte Variablen verwenden den übergebenen Default-Wert.
+    """
+
     value = os.environ.get(name)
     if value is None:
         return default
@@ -481,6 +667,15 @@ def env_flag(name: str, default: bool = False) -> bool:
 
 
 def notification_enabled() -> bool:
+    """
+    Prüft, ob die minimal nötigen SMTP-Variablen gesetzt sind.
+
+    Benötigt werden:
+    - SMTP_HOST
+    - SMTP_TO
+    - SMTP_FROM
+    """
+
     return all(
         [
             os.environ.get("SMTP_HOST"),
@@ -500,6 +695,25 @@ def send_usage_notification(
     started_at: str,
     image_count: int,
 ) -> None:
+    """
+    Sendet optional eine E-Mail-Benachrichtigung für einen neuen Eintrag.
+
+    Die Funktion macht nichts, wenn notification_enabled() False zurückgibt.
+    SMTP-Konfiguration erfolgt vollständig über Environment-Variablen:
+
+    Pflicht:
+    - SMTP_HOST
+    - SMTP_TO
+    - SMTP_FROM
+
+    Optional:
+    - SMTP_PORT, Standard: 587
+    - SMTP_USER
+    - SMTP_PASSWORD
+    - SMTP_STARTTLS, Standard: true
+    - SMTP_SSL, Standard: false
+    """
+
     if not notification_enabled():
         return
 
@@ -545,12 +759,32 @@ def send_usage_notification(
         smtp.send_message(message)
 
 
+# -----------------------------------------------------------------------------
+# Upload-Validierung
+# -----------------------------------------------------------------------------
+
+
 def allowed_image(upload: UploadFile) -> bool:
+    """
+    Prüft grob, ob ein Upload ein erlaubter Bildtyp ist.
+
+    Achtung: upload.content_type kommt vom Client und ist daher keine harte
+    Sicherheitsgarantie. Für eine robustere Prüfung sollte man zusätzlich den
+    Dateiinhalt prüfen, z. B. mit Pillow oder python-magic.
+    """
+
     return upload.content_type in {"image/jpeg", "image/png", "image/webp"}
+
+
+# -----------------------------------------------------------------------------
+# Öffentliche Seiten
+# -----------------------------------------------------------------------------
 
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
+    """Startseite: zeigt alle aktiven Räume als Auswahl an."""
+
     with db_connect() as conn:
         rooms = load_active_rooms(conn)
 
@@ -567,6 +801,8 @@ def index(request: Request):
 
 @app.get("/r/{room_slug}", response_class=HTMLResponse)
 def room_form(request: Request, room_slug: str):
+    """Formularseite für einen bestimmten Raum."""
+
     with db_connect() as conn:
         room = load_room_by_slug(conn, room_slug)
 
@@ -598,7 +834,24 @@ async def submit_usage(
     remark: str = Form(""),
     images: list[UploadFile] = File(default=[]),
 ):
+    """
+    Verarbeitet das Nutzungsformular eines Raums.
+
+    Ablauf:
+    1. Formulardaten normalisieren und validieren.
+    2. Raum aus der Datenbank laden.
+    3. Optional definierte Zusatzfelder prüfen.
+    4. Nutzungseintrag in usage_sessions speichern.
+    5. Erlaubte Bild-Uploads in UPLOAD_DIR speichern.
+    6. Upload-Metadaten in usage_images speichern.
+    7. Optional E-Mail-Benachrichtigung senden.
+    8. Zur Dankesseite weiterleiten.
+    """
+
+    # request.form() wird zusätzlich benötigt, weil dynamische Zusatzfelder
+    # nicht als feste Funktionsparameter bekannt sind.
     form_data = await request.form()
+
     person_name = person_name.strip()
     house_group = house_group.strip().upper()
     house_number = house_number.strip()
@@ -651,6 +904,9 @@ async def submit_usage(
             if not upload.filename:
                 continue
 
+            # Nicht erlaubte Bildtypen werden still ignoriert. Alternativ könnte
+            # man hier einen 400-Fehler zurückgeben, wenn striktes Verhalten
+            # gewünscht ist.
             if not allowed_image(upload):
                 continue
 
@@ -658,6 +914,8 @@ async def submit_usage(
             if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
                 suffix = ".img"
 
+            # Zufälliger Dateiname verhindert Kollisionen und verhindert, dass
+            # originale Dateinamen direkt als Pfade verwendet werden.
             filename = f"{uuid4().hex}{suffix}"
             target = UPLOAD_DIR / filename
 
@@ -674,6 +932,8 @@ async def submit_usage(
             )
             image_count += 1
 
+    # E-Mail-Versand liegt außerhalb der DB-Transaktion. Wenn die E-Mail
+    # fehlschlägt, bleibt der Eintrag trotzdem gespeichert.
     try:
         send_usage_notification(
             room_name=room["name"],
@@ -692,6 +952,14 @@ async def submit_usage(
 
 @app.get("/thanks", response_class=HTMLResponse)
 def thanks(request: Request):
+    """
+    Dankesseite nach erfolgreichem Eintrag.
+
+    Der optionale Query-Parameter 'raum' wird genutzt, um raumspezifische
+    Informationen anzuzeigen. Ist er ungültig, wird auf den ersten aktiven Raum
+    zurückgefallen.
+    """
+
     room_slug = request.query_params.get("raum", "")
 
     with db_connect() as conn:
@@ -708,6 +976,8 @@ def thanks(request: Request):
 
 @app.get("/anmerkungen", response_class=HTMLResponse)
 def notes(request: Request):
+    """Zeigt die letzten allgemeinen Anmerkungen an."""
+
     with db_connect() as conn:
         entries = conn.execute(
             """
@@ -732,6 +1002,8 @@ def notes(request: Request):
 
 @app.post("/anmerkungen")
 def submit_note(person_name: str = Form(""), note: str = Form(...)):
+    """Speichert eine allgemeine Anmerkung."""
+
     person_name = person_name.strip()
     note = note.strip()
 
@@ -752,11 +1024,20 @@ def submit_note(person_name: str = Form(""), note: str = Form(...)):
 
 @app.get("/datenschutz", response_class=HTMLResponse)
 def privacy(request: Request):
+    """Datenschutzseite."""
+
     return templates.TemplateResponse("privacy.html", page_context(request, "meta", "privacy"))
 
 
 @app.get("/letzte-buchungen", response_class=HTMLResponse)
 def recent_bookings(request: Request):
+    """
+    Öffentliche Übersicht der letzten nicht gelöschten Buchungen.
+
+    Optionaler Query-Parameter:
+    - raum=<slug> filtert auf einen bestimmten Raum.
+    """
+
     selected_room = request.query_params.get("raum", "").strip()
 
     with db_connect() as conn:
@@ -793,6 +1074,8 @@ def recent_bookings(request: Request):
         ).fetchall()
         entries = [dict(entry) for entry in entries]
 
+    # GROUP_CONCAT liefert kommagetrennte Strings. Für Templates ist eine Liste
+    # praktischer.
     for entry in entries:
         filenames = entry["image_filenames"] or ""
         entry["images"] = [filename for filename in filenames.split(",") if filename]
@@ -810,8 +1093,22 @@ def recent_bookings(request: Request):
     )
 
 
+# -----------------------------------------------------------------------------
+# Admin-Seiten
+# -----------------------------------------------------------------------------
+
+
 @app.get("/admin", response_class=HTMLResponse)
 def admin(request: Request):
+    """
+    Admin-Übersicht der letzten nicht gelöschten Buchungen.
+
+    Optionaler Query-Parameter:
+    - raum=<slug> filtert auf einen bestimmten Raum.
+
+    Hinweis: Diese Route ist aktuell nicht zugriffsgeschützt.
+    """
+
     selected_room = request.query_params.get("raum", "").strip()
 
     with db_connect() as conn:
@@ -867,6 +1164,13 @@ def admin(request: Request):
 
 @app.get("/admin/session/{session_id}", response_class=HTMLResponse)
 def session_detail(request: Request, session_id: int):
+    """
+    Detailansicht eines einzelnen Nutzungs-Eintrags.
+
+    Zeigt Grunddaten, Bemerkung, Zusatzfelder und zugehörige Bilder.
+    Hinweis: Diese Route ist aktuell nicht zugriffsgeschützt.
+    """
+
     with db_connect() as conn:
         entry = conn.execute(
             """
@@ -900,6 +1204,8 @@ def session_detail(request: Request, session_id: int):
     if entry is None:
         return HTMLResponse("Eintrag nicht gefunden", status_code=404)
 
+    # Raumdefinition erneut laden, damit dynamische Zusatzfelder mit ihren
+    # Labels angezeigt werden können.
     with db_connect() as conn:
         room = load_room_by_slug(conn, entry["room_slug"])
 
@@ -921,6 +1227,14 @@ def session_detail(request: Request, session_id: int):
 
 @app.post("/admin/session/{session_id}/delete")
 def delete_session(session_id: int):
+    """
+    Markiert einen Nutzungs-Eintrag als gelöscht.
+
+    Es handelt sich um ein Soft-Delete: Der Datensatz bleibt in der Datenbank,
+    wird aber in Listen ausgeblendet, weil deleted_at gesetzt ist.
+    Zugehörige Bilder bleiben ebenfalls erhalten.
+    """
+
     with db_connect() as conn:
         entry = conn.execute(
             "SELECT id FROM usage_sessions WHERE id = ?",
@@ -942,8 +1256,22 @@ def delete_session(session_id: int):
     return RedirectResponse("/admin", status_code=303)
 
 
+# -----------------------------------------------------------------------------
+# Upload-Auslieferung
+# -----------------------------------------------------------------------------
+
+
 @app.get("/uploads/{filename}")
 def uploaded_file(filename: str):
+    """
+    Liefert hochgeladene Bilder aus.
+
+    Da Upload-Dateien beim Speichern UUID-basierte Dateinamen bekommen, ist
+    das Risiko von Pfadmanipulation reduziert. Trotzdem sollte diese Route bei
+    produktiver Nutzung zusätzlich gehärtet werden, z. B. durch Prüfung, dass
+    der aufgelöste Pfad innerhalb von UPLOAD_DIR liegt.
+    """
+
     path = UPLOAD_DIR / filename
     if not path.exists():
         return HTMLResponse("Datei nicht gefunden", status_code=404)
