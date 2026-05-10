@@ -3,8 +3,15 @@
 
 {% block content %}
 <section class="card wide">
-  <h1>Werkstatt-Nutzung</h1>
+  <h1>Raum-Nutzung</h1>
   <p class="muted">Alle Einträge im gleichen Überblick, mit direktem Sprung in die Details.</p>
+
+  <div class="filter-bar" aria-label="Raumfilter">
+    <a class="filter-chip{% if not selected_room %} is-current{% endif %}" href="/admin">Alle Räume</a>
+    {% for room in rooms %}
+      <a class="filter-chip{% if selected_room == room.slug %} is-current{% endif %}" href="/admin?raum={{ room.slug }}">{{ room.name }}</a>
+    {% endfor %}
+  </div>
 
   {% if entries %}
     <div class="entry-table-wrap desktop-only">
@@ -61,7 +68,7 @@
             <strong>{{ e.person_name }}</strong>
             <span class="mobile-entry-house">{{ e.house }}</span>
           </div>
-          <p class="mobile-entry-time">{{ e.started_at|datetime_de }}</p>
+          <p class="mobile-entry-time">{{ e.started_at|datetime_de }} · {{ e.room_name }}</p>
 
           {% if e.remark %}
             <p class="mobile-entry-remark">{{ e.remark }}</p>

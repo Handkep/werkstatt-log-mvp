@@ -16,6 +16,12 @@
   <p><strong>Zeit:</strong> {{ entry.started_at|datetime_de }}</p>
   <p><strong>Bemerkung:</strong> {{ entry.remark or "—" }}</p>
 
+  {% if extra_fields %}
+    {% for field in extra_fields %}
+      <p><strong>{{ field.label }}:</strong> {{ field.value }}</p>
+    {% endfor %}
+  {% endif %}
+
   <h2>Bilder</h2>
 
   {% if images %}

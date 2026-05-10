@@ -4,15 +4,15 @@
 {% block content %}
 <section class="card">
   <h1>Danke!</h1>
-  <p>Die Nutzung wurde gespeichert.</p>
+  <p>Die Nutzung für {% if room %}{{ room.name }}{% else %}den Raum{% endif %} wurde gespeichert.</p>
 
   <section class="exit-checklist" aria-labelledby="exit-checklist-title" data-exit-checklist>
     <div class="exit-checklist-head">
       <div>
-        <h2 id="exit-checklist-title">Bitte den Raum so verlassen</h2>
-        <p class="muted">Ein letzter kurzer Check hilft allen, die die Werkstatt nach dir nutzen.</p>
+        <h2 id="exit-checklist-title">{{ room.checklist_title if room else "Bitte den Raum so verlassen" }}</h2>
+        <p class="muted">{{ room.checklist_intro if room else "Ein letzter kurzer Check hilft allen, die den Raum nach dir nutzen." }}</p>
       </div>
-      <span class="checklist-progress" data-checklist-progress>0 / 5 erledigt</span>
+      <span class="checklist-progress" data-checklist-progress>0 / {{ room.checklist_items|length if room else 0 }} erledigt</span>
     </div>
 
     <div class="checklist-meter" aria-hidden="true">
@@ -20,63 +20,34 @@
     </div>
 
     <ul class="checklist" data-checklist-items>
-      <li>
-        <label class="checklist-item">
-          <input type="checkbox" data-checklist-input>
-          <span class="checklist-mark" aria-hidden="true"></span>
-          <span class="checklist-copy">
-            <strong>Werkzeug zurückräumen</strong>
-            <small>Bitte alles wieder an den vorgesehenen Platz legen.</small>
-          </span>
-        </label>
-      </li>
-      <li>
-        <label class="checklist-item">
-          <input type="checkbox" data-checklist-input>
-          <span class="checklist-mark" aria-hidden="true"></span>
-          <span class="checklist-copy">
-            <strong>Arbeitsflächen sauber hinterlassen</strong>
-            <small>Werkbank, Maschinen und benutzte Flächen kurz abwischen.</small>
-          </span>
-        </label>
-      </li>
-      <li>
-        <label class="checklist-item">
-          <input type="checkbox" data-checklist-input>
-          <span class="checklist-mark" aria-hidden="true"></span>
-          <span class="checklist-copy">
-            <strong>Müll und Restmaterial entsorgen</strong>
-            <small>Verschnitt, Verpackungen und Abfall bitte direkt mitnehmen oder entsorgen.</small>
-          </span>
-        </label>
-      </li>
-      <li>
-        <label class="checklist-item">
-          <input type="checkbox" data-checklist-input>
-          <span class="checklist-mark" aria-hidden="true"></span>
-          <span class="checklist-copy">
-            <strong>Fenster und Licht prüfen</strong>
-            <small>Fenster schließen und Licht ausschalten, wenn niemand mehr da ist.</small>
-          </span>
-        </label>
-      </li>
-      <li>
-        <label class="checklist-item">
-          <input type="checkbox" data-checklist-input>
-          <span class="checklist-mark" aria-hidden="true"></span>
-          <span class="checklist-copy">
-            <strong>Tür ordentlich schließen</strong>
-            <small>Beim Verlassen bitte kurz kontrollieren, dass die Werkstatt sicher geschlossen ist.</small>
-          </span>
-        </label>
-      </li>
+      {% if room %}
+        {% for item in room.checklist_items %}
+          <li>
+            <label class="checklist-item">
+              <input type="checkbox" data-checklist-input>
+              <span class="checklist-mark" aria-hidden="true"></span>
+              <span class="checklist-copy">
+                <strong>{{ item }}</strong>
+              </span>
+            </label>
+          </li>
+        {% endfor %}
+      {% endif %}
     </ul>
 
-    <p class="checklist-success" data-checklist-success hidden>Alles erledigt. Danke, dass du die Werkstatt ordentlich hinterlässt.</p>
+    <p class="checklist-success" data-checklist-success hidden>Alles erledigt. Danke, dass du {% if room %}{{ room.name }}{% else %}den Raum{% endif %} ordentlich hinterlässt.</p>
   </section>
 
   <p class="card-link">
-    <a class="button" href="/r/werkstatt">Noch einen Eintrag anlegen</a>
+    {% if room %}
+      <a class="button" href="/r/{{ room.slug }}">Noch einen Eintrag für {{ room.name }} anlegen</a>
+    {% else %}
+      <a class="button" href="/">Zu den Räumen</a>
+    {% endif %}
+  </p>
+
+  <p class="card-link">
+    <a href="/">Zur Raumübersicht</a>
   </p>
 </section>
 {% endblock %}

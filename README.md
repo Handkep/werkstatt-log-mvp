@@ -1,6 +1,6 @@
-# Werkstatt Log MVP
+# Zelter5 Raumlog
 
-Minimaler Test für Raum-Nutzung per QR-Code.
+Mehrraum-Log für die gemeinsamen Bereiche von Zelter5.
 
 ## Lokal starten
 
@@ -14,7 +14,7 @@ uvicorn app.main:app --reload
 Dann öffnen:
 
 ```text
-http://localhost:8000/r/werkstatt
+http://localhost:8000/
 http://localhost:8000/admin
 ```
 
@@ -51,14 +51,18 @@ Im Docker-Setup werden Änderungen in `./app` jetzt direkt in den Container gesp
 Dann öffnen:
 
 ```text
-http://localhost:8080/r/werkstatt
-http://localhost:8080/admin
+http://localhost:8000/
+http://localhost:8000/admin
 ```
 
 ## QR-Code
 
-Der QR-Code zeigt später einfach auf:
+Die QR-Codes zeigen jeweils direkt auf den passenden Raum:
 
 ```text
 https://deine-domain.de/r/werkstatt
+https://deine-domain.de/r/dachterrasse
+https://deine-domain.de/r/sommerkueche
+https://deine-domain.de/r/sauna
+https://deine-domain.de/r/ruheraum
 ```

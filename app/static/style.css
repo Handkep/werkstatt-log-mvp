@@ -125,6 +125,75 @@ body {
   border-style: dashed;
 }
 
+.room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.room-card {
+  display: grid;
+  gap: 14px;
+  align-content: space-between;
+  border: 1px solid var(--row-border);
+  border-radius: 18px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(22, 163, 74, 0.08), transparent 28%),
+    var(--control-bg);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.room-card-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.room-card h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.room-card p {
+  margin: 0;
+  color: var(--soft-text);
+  line-height: 1.45;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 0;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 12px;
+  background: var(--control-bg);
+  color: var(--soft-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 650;
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+
+.filter-chip:hover {
+  transform: translateY(-1px);
+  color: var(--text);
+}
+
+.filter-chip.is-current {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
 .card {
   position: relative;
   background: var(--card-bg);
@@ -430,6 +499,19 @@ a {
     min-height: 38px;
     padding: 0 12px;
     font-size: 0.9rem;
+  }
+
+  .room-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-bar {
+    gap: 7px;
+  }
+
+  .filter-chip {
+    min-height: 36px;
+    font-size: 0.86rem;
   }
 }
 

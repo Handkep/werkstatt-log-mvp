@@ -4,7 +4,14 @@
 {% block content %}
 <section class="card wide">
   <h1>Letzte Buchungen</h1>
-  <p class="muted">Die neuesten Einträge der Werkstatt-Nutzung.</p>
+  <p class="muted">Die neuesten Einträge der Raum-Nutzung.</p>
+
+  <div class="filter-bar" aria-label="Raumfilter">
+    <a class="filter-chip{% if not selected_room %} is-current{% endif %}" href="/letzte-buchungen">Alle Räume</a>
+    {% for room in rooms %}
+      <a class="filter-chip{% if selected_room == room.slug %} is-current{% endif %}" href="/letzte-buchungen?raum={{ room.slug }}">{{ room.name }}</a>
+    {% endfor %}
+  </div>
 
   {% if entries %}
     <div class="entry-table-wrap desktop-only">
@@ -61,7 +68,7 @@
             <strong>{{ entry.person_name }}</strong>
             <span class="mobile-entry-house">{{ entry.house }}</span>
           </div>
-          <p class="mobile-entry-time">{{ entry.started_at|datetime_de }}</p>
+          <p class="mobile-entry-time">{{ entry.started_at|datetime_de }} · {{ entry.room_name }}</p>
 
           {% if entry.remark %}
             <p class="mobile-entry-remark">{{ entry.remark }}</p>
@@ -89,7 +96,7 @@
     <p>Noch keine Buchungen.</p>
   {% endif %}
 
-  <p class="card-link"><a href="/r/werkstatt">Zurück zum Formular</a></p>
+  <p class="card-link"><a href="/">Zur Raumübersicht</a></p>
 </section>
 
 <div class="image-viewer" data-image-viewer hidden>

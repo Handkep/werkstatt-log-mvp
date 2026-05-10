@@ -4,7 +4,7 @@
 {% block content %}
 <section class="card">
   <h1>{{ room.name }}</h1>
-  <p class="muted">Dokumentiere kurz die Nutzung des Raums.</p>
+  <p class="muted">{{ room.intro_text }}</p>
 
   <form method="post" action="/r/{{ room.slug }}/submit" enctype="multipart/form-data">
     <label>
@@ -30,7 +30,7 @@
     </label>
 
     <fieldset>
-      <legend>Zustand der Werkstatt</legend>
+      <legend>{{ room.condition_label }}</legend>
       <div class="radio-group condition-group">
         {% for condition in conditions %}
           <label class="radio-option">
@@ -43,8 +43,42 @@
 
     <label>
       Bemerkung optional
-      <textarea name="remark" rows="4" placeholder="z. B. Werkbank benutzt, alles sauber hinterlassen"></textarea>
+      <textarea name="remark" rows="4" placeholder="{{ room.remark_placeholder }}"></textarea>
     </label>
+
+    {% for field in room.extra_fields %}
+      {% if field.type == "textarea" %}
+        <label>
+          {{ field.label }}
+          <textarea
+            name="{{ field.name }}"
+            rows="{{ field.rows or 4 }}"
+            {% if field.required %}required{% endif %}
+            {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
+          ></textarea>
+        </label>
+      {% elif field.type == "select" %}
+        <label>
+          {{ field.label }}
+          <select name="{{ field.name }}" {% if field.required %}required{% endif %}>
+            <option value="">Bitte wählen</option>
+            {% for option in field.options %}
+              <option value="{{ option.value }}">{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      {% else %}
+        <label>
+          {{ field.label }}
+          <input
+            name="{{ field.name }}"
+            {% if field.inputmode %}inputmode="{{ field.inputmode }}"{% endif %}
+            {% if field.required %}required{% endif %}
+            {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
+          >
+        </label>
+      {% endif %}
+    {% endfor %}
 
     <div class="file-field">
       <span class="field-label">Bilder optional</span>
@@ -65,7 +99,7 @@
   </form>
 
   <p class="card-link">
-    <a href="/letzte-buchungen">Letzte Buchungen ansehen</a>
+    <a href="/letzte-buchungen?raum={{ room.slug }}">Letzte Buchungen für {{ room.name }} ansehen</a>
   </p>
 </section>
 {% endblock %}

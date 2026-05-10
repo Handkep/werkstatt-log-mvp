@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Räume{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Räume</h1>
+  <p class="muted">Wähle den Bereich aus, den du für Zelter5 dokumentieren möchtest.</p>
+
+  <div class="room-grid">
+    {% for room in rooms %}
+      <article class="room-card">
+        <div class="room-card-copy">
+          <h2>{{ room.name }}</h2>
+          <p>{{ room.description }}</p>
+        </div>
+        <a class="button" href="/r/{{ room.slug }}">Zum Formular</a>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

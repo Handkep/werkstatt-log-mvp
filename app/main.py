@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request, Form, File, UploadFile
 from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import json
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -25,7 +26,7 @@ logger = logging.getLogger("werkstatt_log")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Werkstatt Log MVP")
+app = FastAPI(title="Zelter5 Raumlog")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
@@ -59,9 +60,112 @@ WORKSHOP_CONDITIONS = [
     "Problem/Defekt",
 ]
 
+ROOM_DEFINITIONS = [
+    {
+        "slug": "werkstatt",
+        "name": "Werkstatt",
+        "description": "Werkzeuge, Maschinen und Arbeitsflächen dokumentieren.",
+        "intro_text": "Dokumentiere kurz die Nutzung der Werkstatt.",
+        "condition_label": "Zustand der Werkstatt",
+        "remark_placeholder": "z. B. Werkbank benutzt, alles sauber hinterlassen",
+        "checklist_title": "Bitte die Werkstatt so verlassen",
+        "checklist_intro": "Ein letzter kurzer Check hilft allen, die die Werkstatt nach dir nutzen.",
+        "checklist_items": [
+            "Werkzeug zurückräumen",
+            "Arbeitsflächen sauber hinterlassen",
+            "Müll und Restmaterial entsorgen",
+            "Fenster schließen und Licht ausschalten",
+            "Tür ordentlich schließen",
+        ],
+        "extra_fields": [],
+        "sort_order": 10,
+        "is_active": 1,
+    },
+    {
+        "slug": "dachterrasse",
+        "name": "Dachterrasse",
+        "description": "Ordnung, Sauberkeit und Rücksicht auf die gemeinsame Terrasse festhalten.",
+        "intro_text": "Dokumentiere kurz die Nutzung der Dachterrasse.",
+        "condition_label": "Zustand der Dachterrasse",
+        "remark_placeholder": "z. B. Stühle genutzt, alles wieder ordentlich gestellt",
+        "checklist_title": "Bitte die Dachterrasse so verlassen",
+        "checklist_intro": "So bleibt die Dachterrasse für alle direkt wieder nutzbar.",
+        "checklist_items": [
+            "Möbel ordentlich zurückstellen",
+            "Tische sauber hinterlassen",
+            "Leergut, Müll und Asche entfernen",
+            "Licht und elektrische Geräte ausschalten",
+            "Auf einen ruhigen, aufgeräumten Gesamteindruck achten",
+        ],
+        "extra_fields": [],
+        "sort_order": 20,
+        "is_active": 1,
+    },
+    {
+        "slug": "sommerkueche",
+        "name": "Sommerküche",
+        "description": "Nutzung, Sauberkeit und Zustand der gemeinsamen Sommerküche erfassen.",
+        "intro_text": "Dokumentiere kurz die Nutzung der Sommerküche.",
+        "condition_label": "Zustand der Sommerküche",
+        "remark_placeholder": "z. B. Herd benutzt, Flächen gereinigt, alles trocken hinterlassen",
+        "checklist_title": "Bitte die Sommerküche so verlassen",
+        "checklist_intro": "Mit ein paar Handgriffen ist die Sommerküche sofort wieder einsatzbereit.",
+        "checklist_items": [
+            "Benutztes Geschirr und Werkzeug reinigen",
+            "Arbeitsflächen abwischen",
+            "Lebensmittelreste und Müll entsorgen",
+            "Wasser, Strom und Geräte prüfen",
+            "Alles ordentlich und hygienisch hinterlassen",
+        ],
+        "extra_fields": [],
+        "sort_order": 30,
+        "is_active": 1,
+    },
+    {
+        "slug": "sauna",
+        "name": "Sauna",
+        "description": "Sauberkeit, Nutzung und eventuelle Auffälligkeiten in der Sauna festhalten.",
+        "intro_text": "Dokumentiere kurz die Nutzung der Sauna.",
+        "condition_label": "Zustand der Sauna",
+        "remark_placeholder": "z. B. Sauna genutzt, Holz trocken, keine Auffälligkeiten",
+        "checklist_title": "Bitte die Sauna so verlassen",
+        "checklist_intro": "So bleibt die Sauna hygienisch und bereit für die nächsten Nutzerinnen und Nutzer.",
+        "checklist_items": [
+            "Benutzte Flächen trocken hinterlassen",
+            "Handtücher und persönliche Dinge mitnehmen",
+            "Müll entsorgen",
+            "Licht und Technik prüfen",
+            "Ruhe und Sauberkeit im Raum wiederherstellen",
+        ],
+        "extra_fields": [],
+        "sort_order": 40,
+        "is_active": 1,
+    },
+    {
+        "slug": "ruheraum",
+        "name": "Ruheraum",
+        "description": "Den Ruheraum ordentlich, ruhig und angenehm für die nächsten Personen dokumentieren.",
+        "intro_text": "Dokumentiere kurz die Nutzung des Ruheraums.",
+        "condition_label": "Zustand des Ruheraums",
+        "remark_placeholder": "z. B. Matten genutzt, alles ruhig und ordentlich hinterlassen",
+        "checklist_title": "Bitte den Ruheraum so verlassen",
+        "checklist_intro": "Ein ruhiger und gepflegter Raum macht den Unterschied für die nächsten Personen.",
+        "checklist_items": [
+            "Liegen, Kissen oder Decken ordentlich zurücklegen",
+            "Persönliche Dinge vollständig mitnehmen",
+            "Müll entsorgen",
+            "Licht und Fenster prüfen",
+            "Den Raum ruhig, sauber und einladend hinterlassen",
+        ],
+        "extra_fields": [],
+        "sort_order": 50,
+        "is_active": 1,
+    },
+]
+
 NAV_GROUPS = {
     "public": [
-        {"id": "form", "label": "Formular", "href": "/r/werkstatt"},
+        {"id": "rooms", "label": "Räume", "href": "/"},
         {"id": "recent", "label": "Letzte Buchungen", "href": "/letzte-buchungen"},
         {"id": "notes", "label": "Anmerkungen", "href": "/anmerkungen"},
     ],
@@ -76,6 +180,95 @@ NAV_GROUPS = {
 
 def random_name_placeholder():
     return f"z. B. {random.choice(FUNNY_NAME_EXAMPLES)}"
+
+
+def parse_json_list(raw_value: str | None):
+    if not raw_value:
+        return []
+
+    try:
+        value = json.loads(raw_value)
+    except json.JSONDecodeError:
+        return []
+
+    return value if isinstance(value, list) else []
+
+
+def hydrate_room(row):
+    room = dict(row)
+    room["checklist_items"] = parse_json_list(room.get("checklist_items_json"))
+    room["extra_fields"] = parse_json_list(room.get("extra_fields_json"))
+    return room
+
+
+def load_active_rooms(conn):
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM rooms
+        WHERE is_active = 1
+        ORDER BY sort_order ASC, name COLLATE NOCASE ASC
+        """
+    ).fetchall()
+    return [hydrate_room(row) for row in rows]
+
+
+def load_room_by_slug(conn, room_slug: str):
+    row = conn.execute(
+        "SELECT * FROM rooms WHERE slug = ? AND is_active = 1",
+        (room_slug,),
+    ).fetchone()
+    return hydrate_room(row) if row is not None else None
+
+
+def read_extra_field_values(room, form_data):
+    values = {}
+
+    for field in room.get("extra_fields", []):
+        field_name = field.get("name", "").strip()
+        field_label = field.get("label", field_name or "Zusatzfeld")
+        field_type = field.get("type", "text")
+        required = bool(field.get("required"))
+
+        if not field_name:
+            continue
+
+        raw_value = form_data.get(field_name, "")
+        value = raw_value.strip() if isinstance(raw_value, str) else ""
+
+        if required and not value:
+            raise ValueError(f"{field_label} fehlt")
+
+        if value and field_type == "select":
+            options = field.get("options", [])
+            option_values = {option.get("value", "") for option in options}
+            if value not in option_values:
+                raise ValueError(f"{field_label} ist ungültig")
+
+        if value:
+            values[field_name] = value
+
+    return values
+
+
+def display_extra_fields(room, raw_values: str | None):
+    values = {}
+    if raw_values:
+        try:
+            parsed = json.loads(raw_values)
+            if isinstance(parsed, dict):
+                values = parsed
+        except json.JSONDecodeError:
+            values = {}
+
+    entries = []
+    for field in room.get("extra_fields", []):
+        field_name = field.get("name", "").strip()
+        if not field_name or field_name not in values:
+            continue
+        entries.append({"label": field.get("label", field_name), "value": values[field_name]})
+
+    return entries
 
 
 def build_nav(nav_section: str, nav_current: str):
@@ -146,7 +339,17 @@ def init_db():
             CREATE TABLE IF NOT EXISTS rooms (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 slug TEXT UNIQUE NOT NULL,
-                name TEXT NOT NULL
+                name TEXT NOT NULL,
+                description TEXT,
+                intro_text TEXT,
+                condition_label TEXT,
+                remark_placeholder TEXT,
+                checklist_title TEXT,
+                checklist_intro TEXT,
+                checklist_items_json TEXT,
+                extra_fields_json TEXT,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                is_active INTEGER NOT NULL DEFAULT 1
             );
 
             CREATE TABLE IF NOT EXISTS usage_sessions (
@@ -156,6 +359,7 @@ def init_db():
                 house TEXT NOT NULL,
                 condition TEXT,
                 remark TEXT,
+                extra_fields_json TEXT,
                 started_at TEXT NOT NULL,
                 deleted_at TEXT,
                 FOREIGN KEY(room_id) REFERENCES rooms(id)
@@ -177,11 +381,26 @@ def init_db():
                 note TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
-
-            INSERT OR IGNORE INTO rooms (slug, name)
-            VALUES ('werkstatt', 'Werkstatt');
             """
         )
+
+        room_columns = conn.execute("PRAGMA table_info(rooms)").fetchall()
+        room_column_names = {column["name"] for column in room_columns}
+        room_column_specs = {
+            "description": "TEXT",
+            "intro_text": "TEXT",
+            "condition_label": "TEXT",
+            "remark_placeholder": "TEXT",
+            "checklist_title": "TEXT",
+            "checklist_intro": "TEXT",
+            "checklist_items_json": "TEXT",
+            "extra_fields_json": "TEXT",
+            "sort_order": "INTEGER NOT NULL DEFAULT 0",
+            "is_active": "INTEGER NOT NULL DEFAULT 1",
+        }
+        for column_name, column_type in room_column_specs.items():
+            if column_name not in room_column_names:
+                conn.execute(f"ALTER TABLE rooms ADD COLUMN {column_name} {column_type}")
 
         columns = conn.execute("PRAGMA table_info(general_notes)").fetchall()
         column_names = {column["name"] for column in columns}
@@ -192,8 +411,57 @@ def init_db():
         column_names = {column["name"] for column in columns}
         if "condition" not in column_names:
             conn.execute("ALTER TABLE usage_sessions ADD COLUMN condition TEXT")
+        if "extra_fields_json" not in column_names:
+            conn.execute("ALTER TABLE usage_sessions ADD COLUMN extra_fields_json TEXT")
         if "deleted_at" not in column_names:
             conn.execute("ALTER TABLE usage_sessions ADD COLUMN deleted_at TEXT")
+
+        for room in ROOM_DEFINITIONS:
+            conn.execute(
+                """
+                INSERT INTO rooms (
+                    slug,
+                    name,
+                    description,
+                    intro_text,
+                    condition_label,
+                    remark_placeholder,
+                    checklist_title,
+                    checklist_intro,
+                    checklist_items_json,
+                    extra_fields_json,
+                    sort_order,
+                    is_active
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(slug) DO UPDATE SET
+                    name = excluded.name,
+                    description = excluded.description,
+                    intro_text = excluded.intro_text,
+                    condition_label = excluded.condition_label,
+                    remark_placeholder = excluded.remark_placeholder,
+                    checklist_title = excluded.checklist_title,
+                    checklist_intro = excluded.checklist_intro,
+                    checklist_items_json = excluded.checklist_items_json,
+                    extra_fields_json = excluded.extra_fields_json,
+                    sort_order = excluded.sort_order,
+                    is_active = excluded.is_active
+                """,
+                (
+                    room["slug"],
+                    room["name"],
+                    room["description"],
+                    room["intro_text"],
+                    room["condition_label"],
+                    room["remark_placeholder"],
+                    room["checklist_title"],
+                    room["checklist_intro"],
+                    json.dumps(room["checklist_items"], ensure_ascii=False),
+                    json.dumps(room["extra_fields"], ensure_ascii=False),
+                    room["sort_order"],
+                    room["is_active"],
+                ),
+            )
 
 
 @app.on_event("startup")
@@ -282,17 +550,25 @@ def allowed_image(upload: UploadFile) -> bool:
 
 
 @app.get("/", response_class=HTMLResponse)
-def index():
-    return RedirectResponse("/r/werkstatt", status_code=303)
+def index(request: Request):
+    with db_connect() as conn:
+        rooms = load_active_rooms(conn)
+
+    return templates.TemplateResponse(
+        "room_index.html",
+        page_context(
+            request,
+            "public",
+            "rooms",
+            rooms=rooms,
+        ),
+    )
 
 
 @app.get("/r/{room_slug}", response_class=HTMLResponse)
 def room_form(request: Request, room_slug: str):
     with db_connect() as conn:
-        room = conn.execute(
-            "SELECT * FROM rooms WHERE slug = ?",
-            (room_slug,),
-        ).fetchone()
+        room = load_room_by_slug(conn, room_slug)
 
     if room is None:
         return HTMLResponse("Raum nicht gefunden", status_code=404)
@@ -302,7 +578,7 @@ def room_form(request: Request, room_slug: str):
         page_context(
             request,
             "public",
-            "form",
+            "rooms",
             room=room,
             house_groups=["TH", "GH", "PH"],
             conditions=WORKSHOP_CONDITIONS,
@@ -313,6 +589,7 @@ def room_form(request: Request, room_slug: str):
 
 @app.post("/r/{room_slug}/submit")
 async def submit_usage(
+    request: Request,
     room_slug: str,
     person_name: str = Form(...),
     house_group: str = Form(...),
@@ -321,6 +598,7 @@ async def submit_usage(
     remark: str = Form(""),
     images: list[UploadFile] = File(default=[]),
 ):
+    form_data = await request.form()
     person_name = person_name.strip()
     house_group = house_group.strip().upper()
     house_number = house_number.strip()
@@ -338,22 +616,32 @@ async def submit_usage(
         return HTMLResponse("Zustand ungültig", status_code=400)
 
     with db_connect() as conn:
-        room = conn.execute(
-            "SELECT * FROM rooms WHERE slug = ?",
-            (room_slug,),
-        ).fetchone()
+        room = load_room_by_slug(conn, room_slug)
 
         if room is None:
             return HTMLResponse("Raum nicht gefunden", status_code=404)
+
+        try:
+            extra_field_values = read_extra_field_values(room, form_data)
+        except ValueError as exc:
+            return HTMLResponse(str(exc), status_code=400)
 
         started_at = now_iso()
 
         cur = conn.execute(
             """
-            INSERT INTO usage_sessions (room_id, person_name, house, condition, remark, started_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO usage_sessions (room_id, person_name, house, condition, remark, extra_fields_json, started_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (room["id"], person_name, house, condition, remark, started_at),
+            (
+                room["id"],
+                person_name,
+                house,
+                condition,
+                remark,
+                json.dumps(extra_field_values, ensure_ascii=False) if extra_field_values else None,
+                started_at,
+            ),
         )
         session_id = cur.lastrowid
 
@@ -399,12 +687,23 @@ async def submit_usage(
     except Exception:
         logger.exception("Konnte Benachrichtigungs-E-Mail nicht senden")
 
-    return RedirectResponse("/thanks", status_code=303)
+    return RedirectResponse(f"/thanks?raum={room_slug}", status_code=303)
 
 
 @app.get("/thanks", response_class=HTMLResponse)
 def thanks(request: Request):
-    return templates.TemplateResponse("thanks.html", page_context(request, "public", "form"))
+    room_slug = request.query_params.get("raum", "")
+
+    with db_connect() as conn:
+        room = load_room_by_slug(conn, room_slug) if room_slug else None
+        if room is None:
+            rooms = load_active_rooms(conn)
+            room = rooms[0] if rooms else None
+
+    return templates.TemplateResponse(
+        "thanks.html",
+        page_context(request, "public", "rooms", room=room),
+    )
 
 
 @app.get("/anmerkungen", response_class=HTMLResponse)
@@ -458,11 +757,22 @@ def privacy(request: Request):
 
 @app.get("/letzte-buchungen", response_class=HTMLResponse)
 def recent_bookings(request: Request):
+    selected_room = request.query_params.get("raum", "").strip()
+
     with db_connect() as conn:
+        rooms = load_active_rooms(conn)
+        query_params = []
+        where_clause = "WHERE usage_sessions.deleted_at IS NULL"
+
+        if selected_room:
+            where_clause += " AND rooms.slug = ?"
+            query_params.append(selected_room)
+
         entries = conn.execute(
-            """
+            f"""
             SELECT
                 usage_sessions.id,
+                rooms.slug AS room_slug,
                 rooms.name AS room_name,
                 usage_sessions.person_name,
                 usage_sessions.house,
@@ -474,11 +784,12 @@ def recent_bookings(request: Request):
             FROM usage_sessions
             JOIN rooms ON rooms.id = usage_sessions.room_id
             LEFT JOIN usage_images ON usage_images.session_id = usage_sessions.id
-            WHERE usage_sessions.deleted_at IS NULL
+            {where_clause}
             GROUP BY usage_sessions.id
             ORDER BY usage_sessions.started_at DESC
             LIMIT 20
-            """
+            """,
+            query_params,
         ).fetchall()
         entries = [dict(entry) for entry in entries]
 
@@ -493,17 +804,30 @@ def recent_bookings(request: Request):
             "public",
             "recent",
             entries=entries,
+            rooms=rooms,
+            selected_room=selected_room,
         ),
     )
 
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin(request: Request):
+    selected_room = request.query_params.get("raum", "").strip()
+
     with db_connect() as conn:
+        rooms = load_active_rooms(conn)
+        query_params = []
+        where_clause = "WHERE usage_sessions.deleted_at IS NULL"
+
+        if selected_room:
+            where_clause += " AND rooms.slug = ?"
+            query_params.append(selected_room)
+
         entries = conn.execute(
-            """
+            f"""
             SELECT
                 usage_sessions.id,
+                rooms.slug AS room_slug,
                 rooms.name AS room_name,
                 usage_sessions.person_name,
                 usage_sessions.house,
@@ -515,11 +839,12 @@ def admin(request: Request):
             FROM usage_sessions
             JOIN rooms ON rooms.id = usage_sessions.room_id
             LEFT JOIN usage_images ON usage_images.session_id = usage_sessions.id
-            WHERE usage_sessions.deleted_at IS NULL
+            {where_clause}
             GROUP BY usage_sessions.id
             ORDER BY usage_sessions.started_at DESC
             LIMIT 100
-            """
+            """,
+            query_params,
         ).fetchall()
         entries = [dict(entry) for entry in entries]
 
@@ -534,6 +859,8 @@ def admin(request: Request):
             "admin",
             "admin",
             entries=entries,
+            rooms=rooms,
+            selected_room=selected_room,
         ),
     )
 
@@ -546,10 +873,12 @@ def session_detail(request: Request, session_id: int):
             SELECT
                 usage_sessions.id,
                 rooms.name AS room_name,
+                rooms.slug AS room_slug,
                 usage_sessions.person_name,
                 usage_sessions.house,
                 usage_sessions.condition,
                 usage_sessions.remark,
+                usage_sessions.extra_fields_json,
                 usage_sessions.started_at,
                 usage_sessions.deleted_at
             FROM usage_sessions
@@ -571,6 +900,12 @@ def session_detail(request: Request, session_id: int):
     if entry is None:
         return HTMLResponse("Eintrag nicht gefunden", status_code=404)
 
+    with db_connect() as conn:
+        room = load_room_by_slug(conn, entry["room_slug"])
+
+    entry = dict(entry)
+    extra_fields = display_extra_fields(room, entry.get("extra_fields_json")) if room else []
+
     return templates.TemplateResponse(
         "session_detail.html",
         page_context(
@@ -579,6 +914,7 @@ def session_detail(request: Request, session_id: int):
             "admin",
             entry=entry,
             images=images,
+            extra_fields=extra_fields,
         ),
     )
 
