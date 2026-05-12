@@ -1,0 +1,187 @@
+.room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.room-card {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  align-content: space-between;
+  border: 1px solid var(--row-border);
+  border-radius: 18px;
+  padding: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(22, 163, 74, 0.08), transparent 28%),
+    var(--control-bg);
+  box-shadow: 0 8px 24px var(--shadow);
+  overflow: visible;
+}
+
+.room-card-clickable {
+  cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out);
+}
+
+.room-card-clickable:hover,
+.room-card-clickable:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px var(--shadow);
+}
+
+.room-card-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.room-card-top {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 6;
+}
+
+.room-card h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.room-card p {
+  margin: 0;
+  color: var(--soft-text);
+  line-height: 1.45;
+}
+
+.room-card-menu {
+  position: relative;
+}
+
+.room-card-menu summary {
+  list-style: none;
+}
+
+.room-card-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.room-card-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out), opacity var(--motion-fast) var(--ease-out);
+}
+
+.room-card-menu-trigger:hover,
+.room-card-menu[open] .room-card-menu-trigger {
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.room-card-menu-trigger:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.room-card-menu-trigger span {
+  font-size: 1.5rem;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.room-card-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  min-width: 220px;
+  border: 1px solid var(--row-border);
+  border-radius: 14px;
+  padding: 8px;
+  background: var(--card-bg);
+  box-shadow: 0 16px 30px var(--shadow);
+}
+
+.room-card-menu-item {
+  display: block;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.room-card-menu-item:hover {
+  background: color-mix(in srgb, var(--card-bg) 72%, var(--page-bg));
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 0;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 12px;
+  background: var(--control-bg);
+  color: var(--soft-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 650;
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+
+.filter-chip:hover {
+  transform: translateY(-1px);
+  color: var(--text);
+}
+
+.filter-chip.is-current {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+.card {
+  position: relative;
+  background: var(--card-bg);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 8px 30px var(--shadow);
+  animation: card-enter 320ms var(--ease-out) both;
+  transition: background-color var(--motion-normal) var(--ease-out), box-shadow var(--motion-normal) var(--ease-out);
+}
+
+.card.wide {
+  overflow-x: auto;
+}
+
+@media (max-width: 640px) {
+  .room-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-bar {
+    gap: 7px;
+  }
+
+  .filter-chip {
+    min-height: 36px;
+    font-size: 0.86rem;
+  }
+}
