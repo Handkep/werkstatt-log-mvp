@@ -9,10 +9,10 @@ Die Anwendung ermöglicht es Nutzerinnen und Nutzern, per QR-Code einen Raum auf
 * QR-Code-fähige Direktlinks pro Raum
 * Formular pro Raum mit Name, Haus, Zustand, Bemerkung und optionalen Bildern
 * Speicherung der Einträge in SQLite
-* Upload von Bildern pro Nutzungseintrag
+* serverseitig validierter Upload von Bildern pro Nutzungseintrag
 * Übersicht der letzten Buchungen
 * allgemeine Anmerkungen
-* einfache Admin-Ansicht mit Detailansicht und Soft-Delete
+* per HTTP Basic Auth geschützte Admin-Ansicht mit Detailansicht und Soft-Delete
 * optionale E-Mail-Benachrichtigung bei neuen Einträgen
 * Docker-Setup für einfachen Betrieb auf einem Server
 
@@ -24,7 +24,7 @@ Die Anwendung ermöglicht es Nutzerinnen und Nutzern, per QR-Code einen Raum auf
 * Sauna
 * Ruheraum
 
-Die Raumkonfiguration befindet sich aktuell im Code in `app/main.py` in `ROOM_DEFINITIONS`.
+Die Raumkonfiguration befindet sich aktuell im Code in `app/constants.py` in `ROOM_DEFINITIONS`.
 
 ## Tech Stack
 
@@ -74,6 +74,13 @@ pip install -r requirements.txt
 
 ### Entwicklung starten
 
+Für den Admin-Bereich müssen Zugangsdaten gesetzt sein:
+
+```bash
+export ADMIN_USERNAME=admin
+export ADMIN_PASSWORD=ein-sicheres-passwort
+```
+
 ```bash
 uvicorn app.main:app --reload
 ```
@@ -94,11 +101,13 @@ docker compose up --build
 Danach öffnen:
 
 ```text
-http://localhost:8000/
-http://localhost:8000/admin
+http://localhost:9000/
+http://localhost:9000/admin
 ```
 
 Im Docker-Setup werden Änderungen in `./app` direkt in den Container gespiegelt. `uvicorn` läuft mit `--reload`, sodass Änderungen an Python-Dateien, Templates und CSS automatisch übernommen werden.
+
+Der veröffentlichte Host-Port kann über `HOST_PORT` gesetzt werden. Der Standard ist `9000`.
 
 ## Persistente Daten
 
@@ -122,6 +131,15 @@ Im Docker-Betrieb sollte `DATA_DIR` auf ein Volume zeigen, damit Datenbank und U
 | Variable        | Pflicht | Standard                  | Beschreibung                                 |
 | --------------- | ------: | ------------------------- | -------------------------------------------- |
 | `DATA_DIR`      |    nein | `../data` relativ zur App | Speicherort für SQLite-Datenbank und Uploads |
+| `ADMIN_USERNAME` |      ja | -                         | Benutzername für den Admin-Bereich           |
+| `ADMIN_PASSWORD` |      ja | -                         | Passwort für den Admin-Bereich               |
+| `PUBLIC_BASE_URL` |    nein | aus Request bzw. Compose-Default | Öffentliche Basis-URL für QR-Code-Links |
+| `MAX_UPLOAD_IMAGES` |    nein | `5`                      | Maximale Anzahl Bilder pro Eintrag           |
+| `MAX_UPLOAD_SIZE_MB` |   nein | `5`                      | Maximale Größe pro Bild in MB                |
+| `MAX_NAME_LENGTH` |      nein | `100`                    | Maximale Länge von Namen                     |
+| `MAX_HOUSE_LENGTH` |     nein | `10`                     | Maximale Länge der kombinierten Hausangabe   |
+| `MAX_COMMENT_LENGTH` |   nein | `2000`                   | Maximale Länge von Bemerkungen und Zusatzfeldern |
+| `MAX_GENERAL_NOTE_LENGTH` | nein | `4000`                 | Maximale Länge allgemeiner Anmerkungen       |
 | `SMTP_HOST`     |    nein | -                         | SMTP-Server für E-Mail-Benachrichtigungen    |
 | `SMTP_PORT`     |    nein | `587`                     | SMTP-Port                                    |
 | `SMTP_FROM`     |    nein | -                         | Absenderadresse                              |
@@ -130,6 +148,22 @@ Im Docker-Betrieb sollte `DATA_DIR` auf ein Volume zeigen, damit Datenbank und U
 | `SMTP_PASSWORD` |    nein | leer                      | SMTP-Passwort                                |
 | `SMTP_STARTTLS` |    nein | `true`                    | STARTTLS verwenden                           |
 | `SMTP_SSL`      |    nein | `false`                   | direkte SSL-Verbindung verwenden             |
+
+Wenn `ADMIN_USERNAME` oder `ADMIN_PASSWORD` fehlen, ist der Admin-Bereich nicht offen erreichbar, sondern antwortet mit einem Konfigurationsfehler. Öffentliche Nutzer-Routen bleiben weiterhin ohne Login erreichbar.
+
+Im Docker-Betrieb sollte `PUBLIC_BASE_URL` auf die von Nutzerinnen und Nutzern tatsächlich erreichbare URL zeigen. Beim Standard-Port aus `docker-compose.yml` wäre das zum Beispiel:
+
+```bash
+PUBLIC_BASE_URL=http://192.168.2.127:9000
+```
+
+Bei einer produktiven Domain entsprechend:
+
+```bash
+PUBLIC_BASE_URL=https://deine-domain.de
+```
+
+Ungültige oder nicht-positive numerische Limit-Werte werden beim Start geloggt und durch sichere Defaults ersetzt.
 
 Die E-Mail-Benachrichtigung ist nur aktiv, wenn mindestens diese Variablen gesetzt sind:
 
@@ -201,7 +235,29 @@ http://localhost:8000/r/ruheraum
 
 ## Admin-Bereich
 
-Der Admin-Bereich ist aktuell funktional einfach gehalten:
+Der Admin-Bereich ist mit HTTP Basic Auth geschützt. Setze dafür vor dem Start:
+
+```bash
+export ADMIN_USERNAME=admin
+export ADMIN_PASSWORD=ein-sicheres-passwort
+```
+
+Bei Docker Compose können diese Werte in einer lokalen `.env` stehen:
+
+```dotenv
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=ein-sicheres-passwort
+HOST_PORT=9000
+PUBLIC_BASE_URL=http://192.168.2.127:9000
+MAX_UPLOAD_IMAGES=5
+MAX_UPLOAD_SIZE_MB=5
+MAX_NAME_LENGTH=100
+MAX_HOUSE_LENGTH=10
+MAX_COMMENT_LENGTH=2000
+MAX_GENERAL_NOTE_LENGTH=4000
+```
+
+Funktional umfasst der Admin-Bereich:
 
 * Übersicht der letzten Einträge
 * Filterung nach Raum
@@ -214,13 +270,24 @@ Beim Soft-Delete wird ein Eintrag nicht physisch gelöscht, sondern mit `deleted
 
 Wichtig für den Betrieb außerhalb des lokalen Netzwerks:
 
-* `/admin` ist aktuell nicht durch Login oder Passwort geschützt.
-* Uploads werden nur grob anhand von Content-Type und Dateiendung geprüft.
+* Hochgeladene Bilder bleiben bewusst öffentlich innerhalb der App und per direktem Bildlink erreichbar.
+* Uploads werden serverseitig als echte Bilder geprüft. Erlaubt sind JPEG, PNG und WebP.
 * Für den Produktivbetrieb sollte die Anwendung hinter HTTPS laufen.
-* Admin-Zugriff sollte per Reverse Proxy, Basic Auth, VPN oder echter Login-Funktion geschützt werden.
+* Admin-Zugangsdaten sollten lang, eindeutig und nicht im Repository gespeichert sein.
 * Regelmäßige Backups von `data/app.db` und `data/uploads/` sind empfehlenswert.
 
-Beispiel: Schutz des Admin-Bereichs über Caddy, Traefik, Nginx oder Authelia.
+Zusätzlicher Schutz über Reverse Proxy, VPN oder Authelia kann trotzdem sinnvoll sein.
+
+## Uploads und Bildauslieferung
+
+Beim Speichern werden Bilder vollständig validiert, bevor ein Nutzungseintrag angelegt wird:
+
+* maximal `MAX_UPLOAD_IMAGES` Bilder pro Eintrag
+* maximal `MAX_UPLOAD_SIZE_MB` MB pro Bild
+* Prüfung mit Pillow, ob die Datei tatsächlich als Bild geöffnet und verifiziert werden kann
+* nur JPEG, PNG und WebP
+
+Die internen Dateinamen werden zufällig per UUID erzeugt und nicht aus Nutzerinput übernommen. Die öffentliche Route `/uploads/{filename}` liefert nur Dateien aus, die als Bildreferenz in der Datenbank gespeichert sind und dem erwarteten UUID-Dateinamenmuster entsprechen. Damit bleiben Bilder für Nutzerinnen und Nutzer über bekannte Links erreichbar, ohne freien Zugriff auf beliebige Dateien im Upload-Verzeichnis zu erlauben.
 
 ## Backup
 
@@ -241,7 +308,7 @@ tar -czf zelter5-raumlog-backup.tar.gz data/
 
 Die Datenbank wird beim Start automatisch initialisiert. Fehlende Spalten werden einfach ergänzt. Für dieses kleine Projekt ist das praktisch; bei größeren Änderungen wäre ein echtes Migrationswerkzeug wie Alembic sauberer.
 
-Die Räume werden beim Start aus `ROOM_DEFINITIONS` in die Datenbank geschrieben oder aktualisiert. Bestehende Nutzungseinträge bleiben dabei erhalten.
+Die Räume werden beim Start aus `ROOM_DEFINITIONS` in `app/constants.py` in die Datenbank geschrieben oder aktualisiert. Bestehende Nutzungseinträge bleiben dabei erhalten.
 
 ## Typische Probleme
 

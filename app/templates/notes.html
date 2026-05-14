@@ -13,12 +13,12 @@
   <form method="post" action="/anmerkungen">
     <label>
       Name
-      <input name="person_name" autocomplete="name" placeholder="{{ name_placeholder }}">
+      <input name="person_name" autocomplete="name" maxlength="{{ limits.max_name_length }}" placeholder="{{ name_placeholder }}">
     </label>
 
     <label>
       Nachricht
-      <textarea name="note" rows="6" required placeholder="Was möchtest du loswerden?"></textarea>
+      <textarea name="note" rows="6" required maxlength="{{ limits.max_general_note_length }}" placeholder="Was möchtest du loswerden?"></textarea>
     </label>
 
     <button type="submit">Anmerkung speichern</button>

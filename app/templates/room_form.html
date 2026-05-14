@@ -9,7 +9,7 @@
   <form method="post" action="/r/{{ room.slug }}/submit" enctype="multipart/form-data">
     <label>
       Name
-      <input name="person_name" required autocomplete="name" placeholder="{{ name_placeholder }}">
+      <input name="person_name" required autocomplete="name" maxlength="{{ limits.max_name_length }}" placeholder="{{ name_placeholder }}">
     </label>
 
     <fieldset>
@@ -26,7 +26,7 @@
 
     <label>
       Nummer
-      <input name="house_number" required inputmode="numeric" pattern="[0-9]+" placeholder="z. B. 1">
+      <input name="house_number" required inputmode="numeric" pattern="[0-9]+" maxlength="{{ limits.max_house_length }}" placeholder="z. B. 1">
     </label>
 
     <fieldset>
@@ -45,7 +45,7 @@
 
     <label>
       Bemerkung optional
-      <textarea name="remark" rows="4" placeholder="{{ room.remark_placeholder }}"></textarea>
+      <textarea name="remark" rows="4" maxlength="{{ limits.max_comment_length }}" placeholder="{{ room.remark_placeholder }}"></textarea>
     </label>
 
     {% for field in room.extra_fields %}
@@ -55,6 +55,7 @@
           <textarea
             name="{{ field.name }}"
             rows="{{ field.rows or 4 }}"
+            maxlength="{{ limits.max_comment_length }}"
             {% if field.required %}required{% endif %}
             {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
           ></textarea>
@@ -74,6 +75,7 @@
           {{ field.label }}
           <input
             name="{{ field.name }}"
+            maxlength="{{ limits.max_comment_length }}"
             {% if field.inputmode %}inputmode="{{ field.inputmode }}"{% endif %}
             {% if field.required %}required{% endif %}
             {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
@@ -87,7 +89,7 @@
       <label class="file-drop">
         <input class="file-input" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <span class="file-drop-title">Bilder auswählen</span>
-        <span class="file-drop-hint" data-file-label>JPG, PNG oder WebP</span>
+        <span class="file-drop-hint" data-file-label>JPG, PNG oder WebP · max. {{ limits.max_upload_images }} Bilder à {{ limits.max_upload_size_mb }} MB</span>
       </label>
     </div>
 

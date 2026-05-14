@@ -1,8 +1,9 @@
 """Admin-Seiten."""
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from app.auth import require_admin
 from app.db import (
     db_connect,
     fetch_booking_entries,
@@ -14,7 +15,7 @@ from app.db import (
 )
 from app.templating import display_extra_fields, page_context, templates
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_admin)])
 
 
 @router.get("/admin", response_class=HTMLResponse)

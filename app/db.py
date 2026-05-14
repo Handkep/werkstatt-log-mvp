@@ -150,6 +150,19 @@ def fetch_session_images(conn: sqlite3.Connection, session_id: int):
     ).fetchall()
 
 
+def fetch_image_by_filename(conn: sqlite3.Connection, filename: str):
+    """Lädt eine gespeicherte Bildreferenz anhand des internen Dateinamens."""
+
+    return conn.execute(
+        """
+        SELECT *
+        FROM usage_images
+        WHERE filename = ?
+        """,
+        (filename,),
+    ).fetchone()
+
+
 def soft_delete_session(conn: sqlite3.Connection, session_id: int) -> bool:
     """Markiert einen Nutzungs-Eintrag als gelöscht."""
 

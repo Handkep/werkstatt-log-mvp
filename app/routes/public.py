@@ -1,25 +1,56 @@
 """Öffentliche Seiten und Formulare."""
 
 import json
-import shutil
+import re
 from io import BytesIO
-from pathlib import Path
-from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 
-from app.config import UPLOAD_DIR, logger
+from app.config import (
+    MAX_COMMENT_LENGTH,
+    MAX_GENERAL_NOTE_LENGTH,
+    MAX_HOUSE_LENGTH,
+    MAX_NAME_LENGTH,
+    UPLOAD_DIR,
+    logger,
+)
 from app.constants import HOUSE_GROUPS, WORKSHOP_CONDITIONS
-from app.db import db_connect, fetch_booking_entries, fetch_general_notes, load_active_rooms, load_room_by_slug
+from app.db import (
+    db_connect,
+    fetch_booking_entries,
+    fetch_general_notes,
+    fetch_image_by_filename,
+    load_active_rooms,
+    load_room_by_slug,
+)
 from app.forms import read_extra_field_values
 from app.services.notifications import send_usage_notification
 from app.services.pdf import build_room_qr_pdf
-from app.services.uploads import allowed_image
+from app.services.uploads import UploadValidationError, validate_image_uploads
 from app.templating import page_context, random_name_placeholder, templates
 from app.utils import now_iso, public_room_url, safe_download_slug
 
 router = APIRouter()
+UPLOAD_FILENAME_PATTERN = re.compile(r"^[0-9a-f]{32}\.(jpg|jpeg|png|webp|img)$")
+
+
+def validation_error(message: str) -> PlainTextResponse:
+    """Erzeugt eine einfache Validierungsantwort ohne HTML-Interpretation."""
+
+    return PlainTextResponse(message, status_code=400)
+
+
+def length_error(label: str, max_length: int) -> PlainTextResponse:
+    """Erzeugt eine verständliche Fehlermeldung für zu lange Eingaben."""
+
+    return validation_error(f"{label} darf maximal {max_length} Zeichen lang sein.")
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -82,68 +113,83 @@ async def submit_usage(
     remark = remark.strip()
 
     if not person_name:
-        return HTMLResponse("Name fehlt", status_code=400)
+        return validation_error("Name fehlt")
+    if len(person_name) > MAX_NAME_LENGTH:
+        return length_error("Name", MAX_NAME_LENGTH)
 
     if house_group not in HOUSE_GROUPS or not house_number.isdigit():
-        return HTMLResponse("Haus ungültig", status_code=400)
+        return validation_error("Haus ungültig")
+
+    if len(house) > MAX_HOUSE_LENGTH:
+        return length_error("Haus", MAX_HOUSE_LENGTH)
 
     if condition not in WORKSHOP_CONDITIONS:
-        return HTMLResponse("Zustand ungültig", status_code=400)
+        return validation_error("Zustand ungültig")
+
+    if len(remark) > MAX_COMMENT_LENGTH:
+        return length_error("Bemerkung", MAX_COMMENT_LENGTH)
 
     with db_connect() as conn:
         room = load_room_by_slug(conn, room_slug)
-        if room is None:
-            return HTMLResponse("Raum nicht gefunden", status_code=404)
+    if room is None:
+        return HTMLResponse("Raum nicht gefunden", status_code=404)
 
-        try:
-            extra_field_values = read_extra_field_values(room, form_data)
-        except ValueError as exc:
-            return HTMLResponse(str(exc), status_code=400)
+    try:
+        extra_field_values = read_extra_field_values(room, form_data)
+    except ValueError as exc:
+        return validation_error(str(exc))
 
-        started_at = now_iso()
-        cur = conn.execute(
-            """
-            INSERT INTO usage_sessions (room_id, person_name, house, condition, remark, extra_fields_json, started_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                room["id"],
-                person_name,
-                house,
-                condition,
-                remark,
-                json.dumps(extra_field_values, ensure_ascii=False) if extra_field_values else None,
-                started_at,
-            ),
-        )
-        session_id = cur.lastrowid
-        image_count = 0
+    try:
+        validated_images = await validate_image_uploads(images)
+    except UploadValidationError as exc:
+        return validation_error(str(exc))
 
-        for upload in images:
-            if not upload.filename:
-                continue
-            if not allowed_image(upload):
-                continue
-
-            suffix = Path(upload.filename).suffix.lower()
-            if suffix not in {".jpg", ".jpeg", ".png", ".webp"}:
-                suffix = ".img"
-
-            filename = f"{uuid4().hex}{suffix}"
-            target = UPLOAD_DIR / filename
-
-            with target.open("wb") as file_obj:
-                shutil.copyfileobj(upload.file, file_obj)
-
-            conn.execute(
+    started_at = now_iso()
+    saved_paths = []
+    try:
+        with db_connect() as conn:
+            cur = conn.execute(
                 """
-                INSERT INTO usage_images
-                (session_id, filename, original_filename, content_type, uploaded_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO usage_sessions (room_id, person_name, house, condition, remark, extra_fields_json, started_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (session_id, filename, upload.filename, upload.content_type, now_iso()),
+                (
+                    room["id"],
+                    person_name,
+                    house,
+                    condition,
+                    remark,
+                    json.dumps(extra_field_values, ensure_ascii=False) if extra_field_values else None,
+                    started_at,
+                ),
             )
-            image_count += 1
+            session_id = cur.lastrowid
+
+            for image in validated_images:
+                target = UPLOAD_DIR / image.filename
+                target.write_bytes(image.data)
+                saved_paths.append(target)
+
+                conn.execute(
+                    """
+                    INSERT INTO usage_images
+                    (session_id, filename, original_filename, content_type, uploaded_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session_id,
+                        image.filename,
+                        image.original_filename,
+                        image.content_type,
+                        now_iso(),
+                    ),
+                )
+    except Exception:
+        for path in saved_paths:
+            path.unlink(missing_ok=True)
+        raise
+
+    image_count = len(validated_images)
 
     try:
         send_usage_notification(
@@ -207,7 +253,11 @@ def submit_note(person_name: str = Form(""), note: str = Form(...)):
     note = note.strip()
 
     if not note:
-        return HTMLResponse("Anmerkung fehlt", status_code=400)
+        return validation_error("Anmerkung fehlt")
+    if len(person_name) > MAX_NAME_LENGTH:
+        return length_error("Name", MAX_NAME_LENGTH)
+    if len(note) > MAX_GENERAL_NOTE_LENGTH:
+        return length_error("Nachricht", MAX_GENERAL_NOTE_LENGTH)
 
     with db_connect() as conn:
         conn.execute(
@@ -277,7 +327,15 @@ def room_qr_pdf(request: Request, room_slug: str):
 def uploaded_file(filename: str):
     """Liefert hochgeladene Bilder aus."""
 
-    path = UPLOAD_DIR / filename
-    if not path.exists():
+    if not UPLOAD_FILENAME_PATTERN.fullmatch(filename):
         return HTMLResponse("Datei nicht gefunden", status_code=404)
-    return FileResponse(path)
+
+    with db_connect() as conn:
+        image = fetch_image_by_filename(conn, filename)
+    if image is None:
+        return HTMLResponse("Datei nicht gefunden", status_code=404)
+
+    path = UPLOAD_DIR / filename
+    if not path.is_file():
+        return HTMLResponse("Datei nicht gefunden", status_code=404)
+    return FileResponse(path, media_type=image["content_type"] or "application/octet-stream")

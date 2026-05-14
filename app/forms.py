@@ -1,5 +1,7 @@
 """Formular-Helfer für dynamische Zusatzfelder."""
 
+from app.config import MAX_COMMENT_LENGTH
+
 
 def read_extra_field_values(room: dict, form_data) -> dict:
     """
@@ -22,6 +24,9 @@ def read_extra_field_values(room: dict, form_data) -> dict:
 
         if required and not value:
             raise ValueError(f"{field_label} fehlt")
+
+        if value and len(value) > MAX_COMMENT_LENGTH:
+            raise ValueError(f"{field_label} darf maximal {MAX_COMMENT_LENGTH} Zeichen lang sein")
 
         if value and field_type == "select":
             options = field.get("options", [])

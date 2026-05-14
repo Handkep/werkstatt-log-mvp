@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
-from app.config import BASE_DIR, SITE_TITLE
+from app.config import BASE_DIR, LIMITS, SITE_TITLE
 from app.constants import FUNNY_NAME_EXAMPLES, NAV_GROUPS
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -98,6 +98,7 @@ def page_context(request: Request, nav_section: str, nav_current: str, **kwargs)
         "nav_section": nav_section,
         "nav_current": nav_current,
         "site_title": SITE_TITLE,
+        "limits": LIMITS,
         **build_nav(nav_section, nav_current),
         **kwargs,
     }
