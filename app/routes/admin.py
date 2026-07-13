@@ -13,6 +13,7 @@ from app.db import (
     load_room_by_slug,
     soft_delete_session,
 )
+from app.constants import WORKSHOP_CONDITIONS
 from app.templating import display_extra_fields, page_context, templates
 
 router = APIRouter(dependencies=[Depends(require_admin)])
@@ -23,10 +24,22 @@ def admin(request: Request):
     """Admin-Übersicht der letzten nicht gelöschten Buchungen."""
 
     selected_room = request.query_params.get("raum", "").strip()
+    selected_condition = request.query_params.get("zustand", "").strip()
+    search = request.query_params.get("q", "").strip()
+    if selected_condition not in WORKSHOP_CONDITIONS:
+        selected_condition = ""
 
     with db_connect() as conn:
         rooms = load_active_rooms(conn)
-        entries = fetch_booking_entries(conn, selected_room=selected_room, limit=100)
+        entries = fetch_booking_entries(
+            conn,
+            selected_room=selected_room,
+            selected_condition=selected_condition,
+            search=search,
+            limit=100,
+        )
+
+    problem_count = sum(1 for entry in entries if entry["condition"] == "Problem/Defekt")
 
     return templates.TemplateResponse(
         "admin.html",
@@ -36,7 +49,11 @@ def admin(request: Request):
             "admin",
             entries=entries,
             rooms=rooms,
+            conditions=WORKSHOP_CONDITIONS,
             selected_room=selected_room,
+            selected_condition=selected_condition,
+            search=search,
+            problem_count=problem_count,
         ),
     )
 

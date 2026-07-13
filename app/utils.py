@@ -13,7 +13,7 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def public_room_url(request: Request, room_slug: str) -> str:
+def public_room_url(request: Request, room_slug: str, *, room_mode: bool = False) -> str:
     """
     Baut die öffentliche URL für einen Raum.
 
@@ -22,9 +22,10 @@ def public_room_url(request: Request, room_slug: str) -> str:
     """
 
     public_base_url = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    suffix = "?mode=room" if room_mode else ""
     if public_base_url:
-        return f"{public_base_url}/r/{quote(room_slug, safe='')}"
-    return str(request.url_for("room_form", room_slug=room_slug))
+        return f"{public_base_url}/r/{quote(room_slug, safe='')}{suffix}"
+    return f"{request.url_for('room_form', room_slug=room_slug)}{suffix}"
 
 
 def safe_download_slug(value: str) -> str:

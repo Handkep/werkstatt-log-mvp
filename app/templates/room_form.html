@@ -6,10 +6,14 @@
   <h1>{{ room.name }}</h1>
   <p class="muted">{{ room.intro_text }}</p>
 
-  <form method="post" action="/r/{{ room.slug }}/submit" enctype="multipart/form-data">
+  {% if form_error %}
+    <p class="error-note" role="alert">{{ form_error }}</p>
+  {% endif %}
+
+  <form method="post" action="/r/{{ room.slug }}/submit{% if room_mode %}?mode=room{% endif %}" enctype="multipart/form-data" data-remember-usage-form data-has-form-values="{% if form_values %}1{% else %}0{% endif %}">
     <label>
       Name
-      <input name="person_name" required autocomplete="name" maxlength="{{ limits.max_name_length }}" placeholder="{{ name_placeholder }}">
+      <input name="person_name" required autocomplete="name" maxlength="{{ limits.max_name_length }}" value="{{ form_values.person_name or '' }}" placeholder="{{ name_placeholder }}" data-remember-name>
     </label>
 
     <fieldset>
@@ -17,7 +21,7 @@
       <div class="radio-group">
           {% for group in house_groups %}
             <label class="radio-option">
-              <input type="radio" name="house_group" value="{{ group }}" required {% if loop.first %}checked{% endif %}>
+              <input type="radio" name="house_group" value="{{ group }}" required data-remember-house-group {% if form_values.house_group %}{% if form_values.house_group == group %}checked{% endif %}{% elif loop.first %}checked{% endif %}>
               <span>{{ group }}</span>
             </label>
           {% endfor %}
@@ -26,7 +30,7 @@
 
     <label>
       Nummer
-      <input name="house_number" required inputmode="numeric" pattern="[0-9]+" maxlength="{{ limits.max_house_length }}" placeholder="z. B. 1">
+      <input name="house_number" required inputmode="numeric" pattern="[0-9]+" maxlength="{{ limits.max_house_length }}" value="{{ form_values.house_number or '' }}" placeholder="z. B. 1" data-remember-house-number>
     </label>
 
     <fieldset>
@@ -36,7 +40,7 @@
           <label class="radio-option
             {% if condition == 'Sauber' %}condition-option-clean{% elif condition == 'Aufräumen nötig' %}condition-option-warning{% elif condition == 'Problem/Defekt' %}condition-option-problem{% endif %}
           ">
-            <input type="radio" name="condition" value="{{ condition }}" required>
+            <input type="radio" name="condition" value="{{ condition }}" required {% if form_values.condition == condition %}checked{% endif %}>
             <span>{{ condition }}</span>
           </label>
         {% endfor %}
@@ -45,7 +49,8 @@
 
     <label>
       Bemerkung optional
-      <textarea name="remark" rows="4" maxlength="{{ limits.max_comment_length }}" placeholder="{{ room.remark_placeholder }}"></textarea>
+      <textarea name="remark" rows="4" maxlength="{{ limits.max_comment_length }}" placeholder="{{ room.remark_placeholder }}">{{ form_values.remark or '' }}</textarea>
+      <span class="field-hint">Kurz reicht: genutzt, gereinigt, Defekt beschrieben oder „alles okay“.</span>
     </label>
 
     {% for field in room.extra_fields %}
@@ -58,7 +63,7 @@
             maxlength="{{ limits.max_comment_length }}"
             {% if field.required %}required{% endif %}
             {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
-          ></textarea>
+          >{{ form_values[field.name] or '' }}</textarea>
         </label>
       {% elif field.type == "select" %}
         <label>
@@ -66,7 +71,7 @@
           <select name="{{ field.name }}" {% if field.required %}required{% endif %}>
             <option value="">Bitte wählen</option>
             {% for option in field.options %}
-              <option value="{{ option.value }}">{{ option.label }}</option>
+              <option value="{{ option.value }}" {% if form_values[field.name] == option.value %}selected{% endif %}>{{ option.label }}</option>
             {% endfor %}
           </select>
         </label>
@@ -76,6 +81,7 @@
           <input
             name="{{ field.name }}"
             maxlength="{{ limits.max_comment_length }}"
+            value="{{ form_values[field.name] or '' }}"
             {% if field.inputmode %}inputmode="{{ field.inputmode }}"{% endif %}
             {% if field.required %}required{% endif %}
             {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
@@ -89,8 +95,9 @@
       <label class="file-drop">
         <input class="file-input" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <span class="file-drop-title">Bilder auswählen</span>
-        <span class="file-drop-hint" data-file-label>JPG, PNG oder WebP · max. {{ limits.max_upload_images }} Bilder à {{ limits.max_upload_size_mb }} MB</span>
+        <span class="file-drop-hint" data-file-label data-default-label="JPG, PNG oder WebP · max. {{ limits.max_upload_images }} Bilder à {{ limits.max_upload_size_mb }} MB">JPG, PNG oder WebP · max. {{ limits.max_upload_images }} Bilder à {{ limits.max_upload_size_mb }} MB</span>
       </label>
+      <div class="file-preview-list" data-file-preview-list aria-live="polite"></div>
     </div>
 
     <p class="form-note">

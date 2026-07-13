@@ -157,6 +157,31 @@
   color: var(--primary-text);
 }
 
+.admin-filter-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(150px, 0.8fr) minmax(160px, 0.8fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 18px;
+}
+
+.admin-filter-form label {
+  gap: 6px;
+}
+
+.admin-filter-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-filter-actions button,
+.admin-filter-actions .button {
+  min-height: 44px;
+  padding: 12px 14px;
+  white-space: nowrap;
+}
+
 .card {
   position: relative;
   background: var(--card-bg);
@@ -183,5 +208,14 @@
   .filter-chip {
     min-height: 36px;
     font-size: 0.86rem;
+  }
+
+  .admin-filter-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-filter-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }

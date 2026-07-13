@@ -6,12 +6,41 @@
   <h1>Raum-Nutzung</h1>
   <p class="muted">Alle Einträge im gleichen Überblick, mit direktem Sprung in die Details.</p>
 
-  <div class="filter-bar" aria-label="Raumfilter">
-    <a class="filter-chip{% if not selected_room %} is-current{% endif %}" href="/admin">Alle Räume</a>
-    {% for room in rooms %}
-      <a class="filter-chip{% if selected_room == room.slug %} is-current{% endif %}" href="/admin?raum={{ room.slug }}">{{ room.name }}</a>
-    {% endfor %}
-  </div>
+  <form class="admin-filter-form" method="get" action="/admin" aria-label="Admin-Filter">
+    <label>
+      Suche
+      <input name="q" value="{{ search }}" placeholder="Name, Haus, Raum oder Bemerkung">
+    </label>
+
+    <label>
+      Raum
+      <select name="raum">
+        <option value="">Alle Räume</option>
+        {% for room in rooms %}
+          <option value="{{ room.slug }}" {% if selected_room == room.slug %}selected{% endif %}>{{ room.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Zustand
+      <select name="zustand">
+        <option value="">Alle Zustände</option>
+        {% for condition in conditions %}
+          <option value="{{ condition }}" {% if selected_condition == condition %}selected{% endif %}>{{ condition }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <div class="admin-filter-actions">
+      <button type="submit">Filtern</button>
+      <a class="button secondary-button" href="/admin">Zurücksetzen</a>
+    </div>
+  </form>
+
+  {% if problem_count %}
+    <p class="problem-summary">{{ problem_count }} Eintrag{% if problem_count != 1 %}e{% endif %} mit Problem/Defekt in dieser Ansicht.</p>
+  {% endif %}
 
   {% if entries %}
     <div class="entry-table-wrap desktop-only">
@@ -29,7 +58,7 @@
         </thead>
         <tbody>
           {% for e in entries %}
-            <tr class="entry-row clickable-row" data-href="/admin/session/{{ e.id }}" tabindex="0">
+            <tr class="entry-row clickable-row{% if e.condition == 'Problem/Defekt' %} entry-row-problem{% endif %}" data-href="/admin/session/{{ e.id }}" tabindex="0">
               <td class="entry-time entry-cell-time" data-label="Zeit">{{ e.started_at|datetime_de }}</td>
               <td class="entry-cell-name" data-label="Name"><strong>{{ e.person_name }}</strong></td>
               <td class="entry-cell-house" data-label="Haus">{{ e.house }}</td>
@@ -63,7 +92,7 @@
 
     <div class="mobile-entry-list mobile-only">
       {% for e in entries %}
-        <article class="mobile-entry-card clickable-row" data-href="/admin/session/{{ e.id }}" tabindex="0">
+        <article class="mobile-entry-card clickable-row{% if e.condition == 'Problem/Defekt' %} mobile-entry-card-problem{% endif %}" data-href="/admin/session/{{ e.id }}" tabindex="0">
           <div class="mobile-entry-head">
             <strong>{{ e.person_name }}</strong>
             <span class="mobile-entry-house">{{ e.house }}</span>

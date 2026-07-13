@@ -48,6 +48,14 @@
   background: color-mix(in srgb, var(--card-bg) 72%, var(--page-bg));
 }
 
+.entry-row-problem td:first-child {
+  border-left: 4px solid #dc2626;
+}
+
+.entry-row-problem {
+  background: color-mix(in srgb, #dc2626 6%, var(--control-bg));
+}
+
 .clickable-row {
   cursor: pointer;
 }
@@ -110,6 +118,11 @@
 .mobile-entry-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 28px var(--shadow);
+}
+
+.mobile-entry-card-problem {
+  border-color: rgba(220, 38, 38, 0.45);
+  box-shadow: 0 10px 26px color-mix(in srgb, #dc2626 18%, var(--shadow));
 }
 
 .mobile-entry-head {
@@ -320,8 +333,10 @@
 }
 
 .condition-problem {
-  border-color: rgba(220, 38, 38, 0.4);
+  border-color: rgba(220, 38, 38, 0.55);
+  background: rgba(220, 38, 38, 0.1);
   color: #b91c1c;
+  font-weight: 800;
 }
 
 :root[data-theme="dark"] .condition-clean {
@@ -333,6 +348,19 @@
 }
 
 :root[data-theme="dark"] .condition-problem {
+  color: #fca5a5;
+}
+
+.problem-summary {
+  margin: 16px 0 0;
+  border-left: 3px solid #dc2626;
+  padding: 10px 12px;
+  background: color-mix(in srgb, #dc2626 8%, var(--control-bg));
+  color: #b91c1c;
+  font-weight: 750;
+}
+
+:root[data-theme="dark"] .problem-summary {
   color: #fca5a5;
 }
 

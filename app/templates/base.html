@@ -10,16 +10,25 @@
       document.documentElement.dataset.theme = savedTheme;
     }
   </script>
-  <link rel="stylesheet" href="/static/style.css?v=36">
-  <script src="/static/theme.js?v=9" defer></script>
+  <link rel="stylesheet" href="/static/style.css?v=38">
+  <script src="/static/theme.js?v=11" defer></script>
 </head>
 <body>
-  <main class="page">
-    {% include "_nav.html" %}
+  <main class="page{% if room_mode %} is-room-mode{% endif %}">
+    {% if room_mode %}
+      <header class="room-mode-header">
+        <a class="room-mode-overview-link" href="/">Zur Übersicht</a>
+        {% include "theme_toggle.html" %}
+      </header>
+    {% else %}
+      {% include "_nav.html" %}
+    {% endif %}
     {% block content %}{% endblock %}
-    <footer class="site-footer">
-      &copy; 2026 Paulus Handke. All rights reserved.
-    </footer>
+    {% if not room_mode %}
+      <footer class="site-footer">
+        &copy; 2026 Paulus Handke. All rights reserved.
+      </footer>
+    {% endif %}
   </main>
 </body>
 </html>

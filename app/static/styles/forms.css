@@ -148,6 +148,14 @@ textarea {
   font-weight: 650;
 }
 
+.field-hint {
+  margin-top: -8px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 .file-field {
   display: grid;
   gap: 6px;
@@ -190,6 +198,65 @@ textarea {
   font-weight: 500;
 }
 
+.file-preview-list {
+  display: grid;
+  gap: 8px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.file-preview-item {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) max-content;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--row-border);
+  border-radius: 12px;
+  padding: 8px;
+  background: var(--control-bg);
+}
+
+.file-preview-image,
+.file-preview-item > img.file-preview-image {
+  display: block;
+  width: 56px;
+  max-width: 56px;
+  height: 56px;
+  max-height: 56px;
+  aspect-ratio: 1;
+  min-width: 56px;
+  min-height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.file-preview-item > span {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--soft-text);
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-preview-remove {
+  justify-self: end;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  color: var(--link);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 button,
 .button {
   display: inline-block;
@@ -202,6 +269,32 @@ button,
   font-weight: 700;
   cursor: pointer;
   transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out), opacity var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+
+.secondary-button {
+  border: 1px solid var(--border);
+  background: var(--control-bg);
+  color: var(--soft-text);
+}
+
+@media (max-width: 420px) {
+  .file-preview-item {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .file-preview-image,
+  .file-preview-item > img.file-preview-image {
+    width: 56px;
+    max-width: 56px;
+    height: 56px;
+    max-height: 56px;
+  }
+
+  .file-preview-remove {
+    grid-column: 2;
+    justify-self: start;
+    padding-left: 0;
+  }
 }
 
 button:hover,

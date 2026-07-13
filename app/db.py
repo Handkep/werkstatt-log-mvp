@@ -56,6 +56,8 @@ def fetch_booking_entries(
     conn: sqlite3.Connection,
     *,
     selected_room: str = "",
+    selected_condition: str = "",
+    search: str = "",
     limit: int = 20,
 ) -> list[dict]:
     """Lädt Buchungseinträge mit optionalem Raumfilter."""
@@ -66,6 +68,22 @@ def fetch_booking_entries(
     if selected_room:
         where_clause += " AND rooms.slug = ?"
         query_params.append(selected_room)
+
+    if selected_condition:
+        where_clause += " AND usage_sessions.condition = ?"
+        query_params.append(selected_condition)
+
+    if search:
+        where_clause += """
+            AND (
+                usage_sessions.person_name LIKE ?
+                OR usage_sessions.house LIKE ?
+                OR usage_sessions.remark LIKE ?
+                OR rooms.name LIKE ?
+            )
+        """
+        search_term = f"%{search}%"
+        query_params.extend([search_term, search_term, search_term, search_term])
 
     rows = conn.execute(
         f"""

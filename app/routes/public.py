@@ -5,13 +5,7 @@ import re
 from io import BytesIO
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
-from fastapi.responses import (
-    FileResponse,
-    HTMLResponse,
-    PlainTextResponse,
-    RedirectResponse,
-    StreamingResponse,
-)
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 
 from app.config import (
     MAX_COMMENT_LENGTH,
@@ -41,16 +35,71 @@ router = APIRouter()
 UPLOAD_FILENAME_PATTERN = re.compile(r"^[0-9a-f]{32}\.(jpg|jpeg|png|webp|img)$")
 
 
-def validation_error(message: str) -> PlainTextResponse:
-    """Erzeugt eine einfache Validierungsantwort ohne HTML-Interpretation."""
+def is_room_mode(request: Request) -> bool:
+    """Prüft, ob die aktuelle öffentliche Seite im QR-Raummodus läuft."""
 
-    return PlainTextResponse(message, status_code=400)
+    return request.query_params.get("mode") == "room"
 
 
-def length_error(label: str, max_length: int) -> PlainTextResponse:
+def length_error(label: str, max_length: int) -> str:
     """Erzeugt eine verständliche Fehlermeldung für zu lange Eingaben."""
 
-    return validation_error(f"{label} darf maximal {max_length} Zeichen lang sein.")
+    return f"{label} darf maximal {max_length} Zeichen lang sein."
+
+
+def room_form_response(
+    request: Request,
+    room: dict,
+    *,
+    error: str = "",
+    form_values: dict | None = None,
+) -> HTMLResponse:
+    """Rendert das Raumformular mit optionaler Fehlermeldung."""
+
+    return templates.TemplateResponse(
+        "room_form.html",
+        page_context(
+            request,
+            "public",
+            "rooms",
+            room=room,
+            house_groups=HOUSE_GROUPS,
+            conditions=WORKSHOP_CONDITIONS,
+            name_placeholder=random_name_placeholder(),
+            form_error=error,
+            form_values=form_values or {},
+            room_mode=is_room_mode(request),
+        ),
+        status_code=400 if error else 200,
+    )
+
+
+def notes_response(
+    request: Request,
+    *,
+    error: str = "",
+    form_values: dict | None = None,
+    saved: bool = False,
+) -> HTMLResponse:
+    """Rendert das Anmerkungsformular mit Einträgen und optionalem Fehler."""
+
+    with db_connect() as conn:
+        entries = fetch_general_notes(conn, limit=20)
+
+    return templates.TemplateResponse(
+        "notes.html",
+        page_context(
+            request,
+            "public",
+            "notes",
+            entries=entries,
+            saved=saved,
+            name_placeholder=random_name_placeholder(),
+            form_error=error,
+            form_values=form_values or {},
+        ),
+        status_code=400 if error else 200,
+    )
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -76,18 +125,7 @@ def room_form(request: Request, room_slug: str):
     if room is None:
         return HTMLResponse("Raum nicht gefunden", status_code=404)
 
-    return templates.TemplateResponse(
-        "room_form.html",
-        page_context(
-            request,
-            "public",
-            "rooms",
-            room=room,
-            house_groups=HOUSE_GROUPS,
-            conditions=WORKSHOP_CONDITIONS,
-            name_placeholder=random_name_placeholder(),
-        ),
-    )
+    return room_form_response(request, room)
 
 
 @router.post("/r/{room_slug}/submit")
@@ -112,37 +150,65 @@ async def submit_usage(
     condition = condition.strip()
     remark = remark.strip()
 
-    if not person_name:
-        return validation_error("Name fehlt")
-    if len(person_name) > MAX_NAME_LENGTH:
-        return length_error("Name", MAX_NAME_LENGTH)
-
-    if house_group not in HOUSE_GROUPS or not house_number.isdigit():
-        return validation_error("Haus ungültig")
-
-    if len(house) > MAX_HOUSE_LENGTH:
-        return length_error("Haus", MAX_HOUSE_LENGTH)
-
-    if condition not in WORKSHOP_CONDITIONS:
-        return validation_error("Zustand ungültig")
-
-    if len(remark) > MAX_COMMENT_LENGTH:
-        return length_error("Bemerkung", MAX_COMMENT_LENGTH)
-
     with db_connect() as conn:
         room = load_room_by_slug(conn, room_slug)
     if room is None:
         return HTMLResponse("Raum nicht gefunden", status_code=404)
 
+    form_values = {
+        "person_name": person_name,
+        "house_group": house_group,
+        "house_number": house_number,
+        "condition": condition,
+        "remark": remark,
+    }
+    for field in room.get("extra_fields", []):
+        field_name = field.get("name", "").strip()
+        if field_name:
+            raw_value = form_data.get(field_name, "")
+            form_values[field_name] = raw_value.strip() if isinstance(raw_value, str) else ""
+
+    if not person_name:
+        return room_form_response(request, room, error="Name fehlt", form_values=form_values)
+    if len(person_name) > MAX_NAME_LENGTH:
+        return room_form_response(
+            request,
+            room,
+            error=length_error("Name", MAX_NAME_LENGTH),
+            form_values=form_values,
+        )
+
+    if house_group not in HOUSE_GROUPS or not house_number.isdigit():
+        return room_form_response(request, room, error="Haus ungültig", form_values=form_values)
+
+    if len(house) > MAX_HOUSE_LENGTH:
+        return room_form_response(
+            request,
+            room,
+            error=length_error("Haus", MAX_HOUSE_LENGTH),
+            form_values=form_values,
+        )
+
+    if condition not in WORKSHOP_CONDITIONS:
+        return room_form_response(request, room, error="Zustand ungültig", form_values=form_values)
+
+    if len(remark) > MAX_COMMENT_LENGTH:
+        return room_form_response(
+            request,
+            room,
+            error=length_error("Bemerkung", MAX_COMMENT_LENGTH),
+            form_values=form_values,
+        )
+
     try:
         extra_field_values = read_extra_field_values(room, form_data)
     except ValueError as exc:
-        return validation_error(str(exc))
+        return room_form_response(request, room, error=str(exc), form_values=form_values)
 
     try:
         validated_images = await validate_image_uploads(images)
     except UploadValidationError as exc:
-        return validation_error(str(exc))
+        return room_form_response(request, room, error=str(exc), form_values=form_values)
 
     started_at = now_iso()
     saved_paths = []
@@ -204,7 +270,10 @@ async def submit_usage(
     except Exception:
         logger.exception("Konnte Benachrichtigungs-E-Mail nicht senden")
 
-    return RedirectResponse(f"/thanks?raum={room_slug}", status_code=303)
+    thanks_url = f"/thanks?raum={room_slug}"
+    if is_room_mode(request):
+        thanks_url += "&mode=room"
+    return RedirectResponse(thanks_url, status_code=303)
 
 
 @router.get("/thanks", response_class=HTMLResponse)
@@ -221,7 +290,7 @@ def thanks(request: Request):
 
     return templates.TemplateResponse(
         "thanks.html",
-        page_context(request, "public", "rooms", room=room),
+        page_context(request, "public", "rooms", room=room, room_mode=is_room_mode(request)),
     )
 
 
@@ -229,35 +298,32 @@ def thanks(request: Request):
 def notes(request: Request):
     """Zeigt die letzten allgemeinen Anmerkungen an."""
 
-    with db_connect() as conn:
-        entries = fetch_general_notes(conn, limit=20)
-
-    return templates.TemplateResponse(
-        "notes.html",
-        page_context(
-            request,
-            "public",
-            "notes",
-            entries=entries,
-            saved=request.query_params.get("gespeichert") == "1",
-            name_placeholder=random_name_placeholder(),
-        ),
-    )
+    return notes_response(request, saved=request.query_params.get("gespeichert") == "1")
 
 
 @router.post("/anmerkungen")
-def submit_note(person_name: str = Form(""), note: str = Form(...)):
+def submit_note(request: Request, person_name: str = Form(""), note: str = Form(...)):
     """Speichert eine allgemeine Anmerkung."""
 
     person_name = person_name.strip()
     note = note.strip()
 
+    form_values = {"person_name": person_name, "note": note}
+
     if not note:
-        return validation_error("Anmerkung fehlt")
+        return notes_response(request, error="Anmerkung fehlt", form_values=form_values)
     if len(person_name) > MAX_NAME_LENGTH:
-        return length_error("Name", MAX_NAME_LENGTH)
+        return notes_response(
+            request,
+            error=length_error("Name", MAX_NAME_LENGTH),
+            form_values=form_values,
+        )
     if len(note) > MAX_GENERAL_NOTE_LENGTH:
-        return length_error("Nachricht", MAX_GENERAL_NOTE_LENGTH)
+        return notes_response(
+            request,
+            error=length_error("Nachricht", MAX_GENERAL_NOTE_LENGTH),
+            form_values=form_values,
+        )
 
     with db_connect() as conn:
         conn.execute(
@@ -311,7 +377,7 @@ def room_qr_pdf(request: Request, room_slug: str):
     if room is None:
         return HTMLResponse("Raum nicht gefunden", status_code=404)
 
-    room_url = public_room_url(request, room_slug)
+    room_url = public_room_url(request, room_slug, room_mode=True)
     pdf_bytes = build_room_qr_pdf(room, room_url)
 
     filename = f"zelter5-qr-{safe_download_slug(room_slug)}.pdf"

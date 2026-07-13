@@ -93,3 +93,16 @@ a {
   color: var(--soft-text);
   font-weight: 650;
 }
+
+.error-note {
+  border-left: 3px solid #dc2626;
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, #dc2626 9%, var(--card-bg));
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+:root[data-theme="dark"] .error-note {
+  color: #fca5a5;
+}

@@ -18,22 +18,115 @@ if (themeToggle) {
 document.querySelectorAll(".file-input").forEach((input) => {
   const label = input.closest(".file-drop")?.querySelector("[data-file-label]");
   const title = input.closest(".file-drop")?.querySelector(".file-drop-title");
+  const fileField = input.closest(".file-field");
+  const previewList = fileField?.querySelector("[data-file-preview-list]");
+  const defaultLabel = label?.dataset.defaultLabel || "JPG, PNG oder WebP";
+  let selectedFiles = [];
 
-  input.addEventListener("change", () => {
+  function syncFiles() {
+    const transfer = new DataTransfer();
+    selectedFiles.forEach((file) => transfer.items.add(file));
+    input.files = transfer.files;
+  }
+
+  function renderPreview() {
+    if (!previewList) {
+      return;
+    }
+
+    previewList.innerHTML = "";
+    selectedFiles.forEach((file, index) => {
+      const item = document.createElement("div");
+      item.className = "file-preview-item";
+
+      const image = document.createElement("img");
+      image.className = "file-preview-image";
+      image.alt = "";
+      image.width = 56;
+      image.height = 56;
+      image.style.width = "56px";
+      image.style.height = "56px";
+      image.style.maxWidth = "56px";
+      image.style.maxHeight = "56px";
+      image.style.objectFit = "cover";
+      image.style.flexShrink = "0";
+      image.src = URL.createObjectURL(file);
+      image.addEventListener("load", () => URL.revokeObjectURL(image.src), { once: true });
+
+      const meta = document.createElement("span");
+      meta.textContent = file.name;
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "file-preview-remove";
+      removeButton.textContent = "Entfernen";
+      removeButton.addEventListener("click", () => {
+        selectedFiles.splice(index, 1);
+        syncFiles();
+        updateFileDisplay();
+      });
+
+      item.append(image, meta, removeButton);
+      previewList.append(item);
+    });
+  }
+
+  function updateFileDisplay() {
     if (!label || !title) {
       return;
     }
 
-    const files = Array.from(input.files);
-
-    if (files.length === 0) {
+    if (selectedFiles.length === 0) {
       title.textContent = "Bilder auswählen";
-      label.textContent = "JPG, PNG oder WebP";
+      label.textContent = defaultLabel;
+      renderPreview();
       return;
     }
 
-    title.textContent = files.length === 1 ? "Bild ausgewählt" : "Bilder ausgewählt";
-    label.textContent = files.length === 1 ? files[0].name : `${files.length} Bilder ausgewählt`;
+    title.textContent = selectedFiles.length === 1 ? "Bild ausgewählt" : "Bilder ausgewählt";
+    label.textContent = selectedFiles.length === 1 ? selectedFiles[0].name : `${selectedFiles.length} Bilder ausgewählt`;
+    renderPreview();
+  }
+
+  input.addEventListener("change", () => {
+    selectedFiles = Array.from(input.files);
+    updateFileDisplay();
+  });
+});
+
+document.querySelectorAll("[data-remember-usage-form]").forEach((form) => {
+  const nameInput = form.querySelector("[data-remember-name]");
+  const houseNumberInput = form.querySelector("[data-remember-house-number]");
+  const houseGroupInputs = Array.from(form.querySelectorAll("[data-remember-house-group]"));
+
+  const savedName = localStorage.getItem("usage_person_name");
+  const savedHouseNumber = localStorage.getItem("usage_house_number");
+  const savedHouseGroup = localStorage.getItem("usage_house_group");
+  const hasServerValues = form.dataset.hasFormValues === "1";
+
+  if (!hasServerValues && nameInput && !nameInput.value && savedName) {
+    nameInput.value = savedName;
+  }
+  if (!hasServerValues && houseNumberInput && !houseNumberInput.value && savedHouseNumber) {
+    houseNumberInput.value = savedHouseNumber;
+  }
+  if (!hasServerValues && savedHouseGroup) {
+    houseGroupInputs.forEach((input) => {
+      input.checked = input.value === savedHouseGroup;
+    });
+  }
+
+  form.addEventListener("submit", () => {
+    if (nameInput?.value.trim()) {
+      localStorage.setItem("usage_person_name", nameInput.value.trim());
+    }
+    if (houseNumberInput?.value.trim()) {
+      localStorage.setItem("usage_house_number", houseNumberInput.value.trim());
+    }
+    const checkedHouseGroup = houseGroupInputs.find((input) => input.checked);
+    if (checkedHouseGroup) {
+      localStorage.setItem("usage_house_group", checkedHouseGroup.value);
+    }
   });
 });
 
