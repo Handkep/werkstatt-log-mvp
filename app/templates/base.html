@@ -4,31 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Zelter5 Raumlog{% endblock %}</title>
-  <script>
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme) {
-      document.documentElement.dataset.theme = savedTheme;
-    }
+  <link rel="preload" href="/static/fonts/google-sans-flex-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <script nonce="{{ csp_nonce }}">
+    try {
+      const savedTheme = localStorage.getItem("theme");
+      if (["light", "dark"].includes(savedTheme)) document.documentElement.dataset.theme = savedTheme;
+    } catch { /* Browser-Speicher ist optional. */ }
   </script>
-  <link rel="stylesheet" href="/static/style.css?v=38">
-  <script src="/static/theme.js?v=11" defer></script>
+  {% if room_access_exchange_path %}
+    <script src="/static/room-access.js?v={{ asset_version }}" data-room-access-exchange="{{ room_access_exchange_path }}"></script>
+  {% endif %}
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+  <script src="/static/theme.js?v={{ asset_version }}" defer></script>
 </head>
 <body>
-  <main class="page{% if room_mode %} is-room-mode{% endif %}">
-    {% if room_mode %}
-      <header class="room-mode-header">
-        <a class="room-mode-overview-link" href="/">Zur Übersicht</a>
-        {% include "theme_toggle.html" %}
-      </header>
-    {% else %}
-      {% include "_nav.html" %}
-    {% endif %}
+  <main class="page">
+    {% include "_nav.html" %}
     {% block content %}{% endblock %}
-    {% if not room_mode %}
-      <footer class="site-footer">
-        &copy; 2026 Paulus Handke. All rights reserved.
-      </footer>
-    {% endif %}
+    <footer class="site-footer">
+      &copy; 2026 Paulus Handke. All rights reserved.
+    </footer>
   </main>
 </body>
 </html>

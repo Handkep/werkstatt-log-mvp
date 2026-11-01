@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Hilfe & Infos{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Hilfe & Infos</h1>
+  <p class="muted">Hier kannst du Fragen, Verbesserungsvorschläge oder sonstige Hinweise hinterlassen.</p>
+
+  {% if saved %}
+    <p class="success-note">Danke, deine Nachricht wurde gespeichert.</p>
+  {% endif %}
+
+  {% if form_error %}
+    <p class="error-note" role="alert">{{ form_error }}</p>
+  {% endif %}
+
+  <h2>Nachricht senden</h2>
+  <form method="post" action="/hilfe" data-help-form data-has-form-values="{% if form_values %}1{% else %}0{% endif %}">
+    <label>
+      Name · optional
+      <input name="person_name" autocomplete="name" maxlength="{{ limits.max_name_length }}" value="{{ form_values.person_name or '' }}" placeholder="{{ name_placeholder }}" data-help-name>
+    </label>
+
+    <label>
+      Nachricht
+      <textarea name="note" rows="6" required maxlength="{{ limits.max_general_note_length }}" placeholder="Was möchtest du loswerden?">{{ form_values.note or '' }}</textarea>
+    </label>
+
+    <button type="submit">Nachricht senden</button>
+  </form>
+
+  <p class="muted">Deine Nachricht ist nur für die zuständige Administration sichtbar.</p>
+
+  <p class="card-link"><a href="/">Zur Raumübersicht</a></p>
+</section>
+{% endblock %}

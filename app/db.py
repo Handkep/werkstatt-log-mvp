@@ -1,9 +1,13 @@
 """Datenbankzugriff und Initialisierung."""
 
 import json
+import secrets
 import sqlite3
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 
-from app.config import DB_PATH
+from app.config import DB_PATH, SQLITE_BUSY_TIMEOUT_MS
 from app.constants import ROOM_DEFINITIONS
 from app.templating import parse_json_list
 from app.utils import now_iso
@@ -18,14 +22,18 @@ def hydrate_room(row: sqlite3.Row) -> dict:
     return room
 
 
-def db_connect() -> sqlite3.Connection:
-    """Erstellt eine SQLite-Verbindung mit sinnvollen Grundeinstellungen."""
-
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
+@contextmanager
+def db_connect() -> Iterator[sqlite3.Connection]:
+    """Eine Transaktion pro Kontext; auch bei Fehlern immer schließen."""
+    conn = sqlite3.connect(DB_PATH, timeout=SQLITE_BUSY_TIMEOUT_MS / 1000)
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def load_active_rooms(conn: sqlite3.Connection) -> list[dict]:
@@ -103,7 +111,7 @@ def fetch_booking_entries(
         LEFT JOIN usage_images ON usage_images.session_id = usage_sessions.id
         {where_clause}
         GROUP BY usage_sessions.id
-        ORDER BY usage_sessions.started_at DESC
+        ORDER BY usage_sessions.started_at DESC, usage_sessions.id DESC
         LIMIT ?
         """,
         [*query_params, limit],
@@ -148,7 +156,7 @@ def fetch_session_detail(conn: sqlite3.Connection, session_id: int):
             usage_sessions.deleted_at
         FROM usage_sessions
         JOIN rooms ON rooms.id = usage_sessions.room_id
-        WHERE usage_sessions.id = ?
+        WHERE usage_sessions.id = ? AND usage_sessions.deleted_at IS NULL
         """,
         (session_id,),
     ).fetchone()
@@ -173,9 +181,10 @@ def fetch_image_by_filename(conn: sqlite3.Connection, filename: str):
 
     return conn.execute(
         """
-        SELECT *
+        SELECT usage_images.*
         FROM usage_images
-        WHERE filename = ?
+        JOIN usage_sessions ON usage_sessions.id = usage_images.session_id
+        WHERE usage_images.filename = ? AND usage_sessions.deleted_at IS NULL
         """,
         (filename,),
     ).fetchone()
@@ -184,30 +193,38 @@ def fetch_image_by_filename(conn: sqlite3.Connection, filename: str):
 def soft_delete_session(conn: sqlite3.Connection, session_id: int) -> bool:
     """Markiert einen Nutzungs-Eintrag als gelöscht."""
 
-    entry = conn.execute(
-        "SELECT id FROM usage_sessions WHERE id = ?",
-        (session_id,),
-    ).fetchone()
-    if entry is None:
-        return False
-
-    conn.execute(
-        """
-        UPDATE usage_sessions
-        SET deleted_at = ?
-        WHERE id = ?
-        """,
+    cursor = conn.execute(
+        "UPDATE usage_sessions SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
         (now_iso(), session_id),
     )
-    return True
+    return cursor.rowcount == 1
+
+
+def configure_wal(conn: sqlite3.Connection) -> None:
+    """Die erste WAL-Umschaltung kann bei parallelen Worker-Starts SQLITE_BUSY liefern."""
+    deadline = time.monotonic() + SQLITE_BUSY_TIMEOUT_MS / 1000
+    while True:
+        try:
+            if conn.execute("PRAGMA journal_mode").fetchone()[0].lower() != "wal":
+                conn.execute("PRAGMA journal_mode=WAL")
+            return
+        except sqlite3.OperationalError as exc:
+            if (
+                getattr(exc, "sqlite_errorcode", None)
+                not in {sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED}
+                or time.monotonic() >= deadline
+            ):
+                raise
+            time.sleep(0.01)
 
 
 def init_db() -> None:
     """Erstellt oder migriert die SQLite-Datenbank."""
 
     with db_connect() as conn:
-        conn.executescript(
-            """
+        configure_wal(conn)
+        conn.execute("BEGIN IMMEDIATE")
+        schema = """
             CREATE TABLE IF NOT EXISTS rooms (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 slug TEXT UNIQUE NOT NULL,
@@ -254,7 +271,11 @@ def init_db() -> None:
                 created_at TEXT NOT NULL
             );
             """
-        )
+        for statement in schema.split(";"):
+            if statement.strip():
+                conn.execute(statement)
+        conn.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY)")
+        conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (1)")
 
         room_columns = conn.execute("PRAGMA table_info(rooms)").fetchall()
         room_column_names = {column["name"] for column in room_columns}
@@ -288,6 +309,53 @@ def init_db() -> None:
         if "deleted_at" not in column_names:
             conn.execute("ALTER TABLE usage_sessions ADD COLUMN deleted_at TEXT")
 
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO app_state VALUES ('rate_limit_secret', ?)",
+            (secrets.token_hex(32),),
+        )
+        conn.execute("""CREATE TABLE IF NOT EXISTS rate_limits (
+            bucket TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL
+        )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_rate_expiry ON rate_limits(expires_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_images_filename ON usage_images(filename)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_images_session ON usage_images(session_id)")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_active_time ON usage_sessions(started_at DESC) WHERE deleted_at IS NULL"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sessions_room_time ON usage_sessions(room_id, started_at DESC) WHERE deleted_at IS NULL"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_notes_time ON general_notes(created_at DESC)")
+        conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (2)")
+        room_columns = {row["name"] for row in conn.execute("PRAGMA table_info(rooms)")}
+        if "qr_key_version" not in room_columns:
+            conn.execute("ALTER TABLE rooms ADD COLUMN qr_key_version INTEGER NOT NULL DEFAULT 1")
+        conn.execute("""CREATE TABLE IF NOT EXISTS reader_sessions (
+            id_hash TEXT PRIMARY KEY, master_id TEXT NOT NULL, expires_at INTEGER NOT NULL
+        )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_reader_expiry ON reader_sessions(expires_at)")
+        conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (3)")
+        # Alte raumbezogene Sitzungen werden in der Entwicklung nicht hochgestuft.
+        session_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(reader_sessions)")
+        }
+        if "access_version" not in session_columns:
+            conn.execute(
+                "ALTER TABLE reader_sessions ADD COLUMN access_version INTEGER NOT NULL DEFAULT 0"
+            )
+        conn.execute("INSERT OR IGNORE INTO app_state VALUES ('reader_access_version', '1')")
+        conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (4)")
+        seed_default_rooms(conn)
+
+
+def seed_default_rooms(conn: sqlite3.Connection) -> None:
+    """Nur eine leere, noch nie initialisierte Raumkonfiguration befüllen."""
+    if conn.execute("SELECT 1 FROM app_state WHERE key = 'rooms_seeded'").fetchone():
+        return
+    if not conn.execute("SELECT 1 FROM rooms LIMIT 1").fetchone():
         for room in ROOM_DEFINITIONS:
             conn.execute(
                 """
@@ -306,18 +374,6 @@ def init_db() -> None:
                     is_active
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(slug) DO UPDATE SET
-                    name = excluded.name,
-                    description = excluded.description,
-                    intro_text = excluded.intro_text,
-                    condition_label = excluded.condition_label,
-                    remark_placeholder = excluded.remark_placeholder,
-                    checklist_title = excluded.checklist_title,
-                    checklist_intro = excluded.checklist_intro,
-                    checklist_items_json = excluded.checklist_items_json,
-                    extra_fields_json = excluded.extra_fields_json,
-                    sort_order = excluded.sort_order,
-                    is_active = excluded.is_active
                 """,
                 (
                     room["slug"],
@@ -334,3 +390,5 @@ def init_db() -> None:
                     room["is_active"],
                 ),
             )
+
+    conn.execute("INSERT INTO app_state VALUES ('rooms_seeded', '1')")

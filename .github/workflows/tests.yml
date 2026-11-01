@@ -1,0 +1,46 @@
+name: Regression tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check app tests
+      - run: ruff format --check app tests
+      - run: python -m pytest -q --ignore=tests/test_browser.py --ignore=tests/test_capability_browser.py
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: pip install -r requirements-browser.txt
+      - run: playwright install --with-deps chromium
+      - run: python -m pytest -q -W error tests/test_browser.py tests/test_capability_browser.py
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: docker build -t raumlog-test:ci .
+      - run: python -m pytest -q -W error tests/test_docker.py
+        env:
+          RUN_DOCKER_TESTS: '1'
+          RAUMLOG_TEST_IMAGE: raumlog-test:ci

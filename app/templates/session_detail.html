@@ -27,8 +27,8 @@
   {% if images %}
     <div class="gallery">
       {% for img in images %}
-        <a href="/uploads/{{ img.filename }}">
-          <img src="/uploads/{{ img.filename }}" alt="{{ img.original_filename }}">
+        <a href="/admin/uploads/{{ img.filename }}">
+          <img src="/admin/uploads/{{ img.filename }}" alt="{{ img.original_filename }}">
         </a>
       {% endfor %}
     </div>
@@ -40,7 +40,8 @@
     <a href="/admin">Zurück zur Übersicht</a>
 
     {% if not entry.deleted_at %}
-      <form method="post" action="/admin/session/{{ entry.id }}/delete" onsubmit="return confirm('Diesen Eintrag wirklich löschen? Er bleibt intern in der Datenbank erhalten.');">
+      <form method="post" action="/admin/session/{{ entry.id }}/delete" data-confirm="Diesen Eintrag wirklich löschen? Er bleibt intern in der Datenbank erhalten.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button class="danger-button" type="submit">Eintrag löschen</button>
       </form>
     {% endif %}

@@ -2,8 +2,10 @@
 
 import os
 import smtplib
+import ssl
 from email.message import EmailMessage
 
+from app.config import logger
 from app.templating import datetime_de
 
 
@@ -57,13 +59,13 @@ def send_usage_notification(
     image_text = f"{image_count} Bild" if image_count == 1 else f"{image_count} Bilder"
 
     message = EmailMessage()
-    message["Subject"] = f"Neuer Werkstatt-Eintrag: {condition}"
+    message["Subject"] = f"Neuer Eintrag ({room_name}): {condition}"
     message["From"] = smtp_from
     message["To"] = smtp_to
     message.set_content(
         "\n".join(
             [
-                "Ein neuer Werkstatt-Eintrag wurde erstellt.",
+                f"Ein neuer Eintrag für {room_name} wurde erstellt.",
                 "",
                 f"Raum: {room_name}",
                 f"Name: {person_name}",
@@ -77,9 +79,19 @@ def send_usage_notification(
     )
 
     smtp_class = smtplib.SMTP_SSL if smtp_ssl else smtplib.SMTP
-    with smtp_class(smtp_host, smtp_port, timeout=15) as smtp:
+    tls_options = {"context": ssl.create_default_context()} if smtp_ssl else {}
+    with smtp_class(smtp_host, smtp_port, timeout=15, **tls_options) as smtp:
         if not smtp_ssl and smtp_starttls:
-            smtp.starttls()
+            smtp.starttls(context=ssl.create_default_context())
         if smtp_user:
             smtp.login(smtp_user, smtp_password)
         smtp.send_message(message)
+
+
+def notify_usage_safely(**kwargs) -> None:
+    """Best-effort nach der HTTP-Antwort; SMTP-Fehler berühren gespeicherte Daten nicht."""
+    try:
+        send_usage_notification(**kwargs)
+    except (OSError, smtplib.SMTPException, ValueError) as exc:
+        # Keine SMTP-Serverantworten, Adressen oder Zugangsdaten ins Log übernehmen.
+        logger.warning("Benachrichtigung fehlgeschlagen (%s)", type(exc).__name__)

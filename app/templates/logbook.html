@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Logbuch{% endblock %}
+
+{% block content %}
+<section class="card wide">
+  <h1>Logbuch</h1>
+  <p class="muted">Geschützter Bereich: die neuesten Einträge der Raumnutzung.</p>
+
+  <div class="filter-bar" aria-label="Raumfilter">
+    <a class="filter-chip{% if not selected_room %} is-current{% endif %}" href="{{ logbook_url }}">Alle Räume</a>
+    {% for room in rooms %}
+      <a class="filter-chip{% if selected_room == room.slug %} is-current{% endif %}" href="{{ logbook_url }}?raum={{ room.slug }}">{{ room.name }}</a>
+    {% endfor %}
+  </div>
+
+  {% if entries %}
+    <div class="entry-table-wrap desktop-only">
+      <table class="entry-table">
+        <thead>
+          <tr>
+            <th>Zeit</th>
+            <th>Name</th>
+            <th>Haus</th>
+            <th>Raum</th>
+            <th>Zustand</th>
+            <th>Bemerkung</th>
+            <th>Bilder</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in entries %}
+            <tr class="entry-row">
+              <td class="entry-time entry-cell-time" data-label="Zeit">{{ entry.started_at|datetime_de }}</td>
+              <td class="entry-cell-name" data-label="Name"><strong>{{ entry.person_name }}</strong></td>
+              <td class="entry-cell-house" data-label="Haus">{{ entry.house }}</td>
+              <td class="entry-cell-room" data-label="Raum">{{ entry.room_name }}</td>
+              <td class="entry-cell-condition" data-label="Zustand">
+                <span class="condition-pill
+                  {% if entry.condition == 'Sauber' %}condition-clean{% elif entry.condition == 'Aufräumen nötig' %}condition-warning{% elif entry.condition == 'Problem/Defekt' %}condition-problem{% endif %}
+                ">{{ entry.condition or "Nicht erfasst" }}</span>
+              </td>
+              <td class="entry-cell-remark" data-label="Bemerkung">
+                {% if entry.remark %}
+                  <p class="entry-remark">{{ entry.remark }}</p>
+                {% else %}
+                  <span class="entry-empty">Keine Bemerkung</span>
+                {% endif %}
+              </td>
+              <td class="entry-cell-images" data-label="Bilder">
+                {% if entry.image_count %}
+                  <button class="booking-images" type="button" data-viewer-images='{{ entry.images|tojson }}'>
+                    {{ entry.image_count }} Bild{% if entry.image_count != 1 %}er{% endif %}
+                  </button>
+                {% else %}
+                  <span class="entry-empty">Keine</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mobile-only">
+      {% include "_booking_cards.html" %}
+    </div>
+  {% else %}
+    <p>Noch keine Buchungen.</p>
+  {% endif %}
+
+  <p class="card-link"><a href="/">Zur Raumübersicht</a></p>
+</section>
+
+{% include "_image_viewer.html" %}
+{% endblock %}

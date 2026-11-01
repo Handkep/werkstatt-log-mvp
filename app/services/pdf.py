@@ -2,12 +2,11 @@
 
 from html import escape
 from io import BytesIO
-from pathlib import Path
 
 import qrcode
-from fontTools.ttLib import TTCollection
+from fastapi.responses import StreamingResponse
 from reportlab.lib.colors import HexColor
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
@@ -17,72 +16,28 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph
 
-from app.config import FONT_DIR, logger
-
-
-def find_ttc_subfont_index(ttc_path: Path, wanted_style: str) -> int | None:
-    """Sucht in einer .ttc-Datei den Index eines bestimmten Schriftschnitts."""
-
-    collection = TTCollection(str(ttc_path))
-
-    for index, font in enumerate(collection.fonts):
-        styles = []
-
-        for name in font["name"].names:
-            if name.nameID in {2, 4}:
-                try:
-                    styles.append(name.toUnicode())
-                except UnicodeDecodeError:
-                    pass
-
-        joined = " ".join(styles).lower()
-        if wanted_style.lower() in joined:
-            return index
-
-    return None
+from app.capabilities import room_qr_url
+from app.config import FONT_DIR
+from app.utils import safe_download_slug
 
 
 def register_pdf_fonts() -> dict:
-    """Registriert bevorzugt Inter und fällt sonst auf Helvetica zurück."""
-
-    inter_ttc = FONT_DIR / "Inter.ttc"
-
-    if inter_ttc.exists():
-        regular_index = find_ttc_subfont_index(inter_ttc, "Regular")
-        semibold_index = find_ttc_subfont_index(inter_ttc, "SemiBold")
-        bold_index = find_ttc_subfont_index(inter_ttc, "Bold")
-
-        if regular_index is not None and semibold_index is not None and bold_index is not None:
-            try:
-                pdfmetrics.registerFont(
-                    TTFont("Inter-Regular", str(inter_ttc), subfontIndex=regular_index)
-                )
-                pdfmetrics.registerFont(
-                    TTFont("Inter-SemiBold", str(inter_ttc), subfontIndex=semibold_index)
-                )
-                pdfmetrics.registerFont(
-                    TTFont("Inter-Bold", str(inter_ttc), subfontIndex=bold_index)
-                )
-                pdfmetrics.registerFontFamily(
-                    "Inter",
-                    normal="Inter-Regular",
-                    bold="Inter-Bold",
-                    italic="Inter-Regular",
-                    boldItalic="Inter-Bold",
-                )
-                return {
-                    "regular": "Inter-Regular",
-                    "semibold": "Inter-SemiBold",
-                    "bold": "Inter-Bold",
-                }
-            except Exception:
-                logger.exception("Inter-PDF-Schriften konnten nicht registriert werden.")
-
-    return {
-        "regular": "Helvetica",
-        "semibold": "Helvetica-Bold",
-        "bold": "Helvetica-Bold",
+    """Die mitgelieferten Google-Sans-Flex-Schnitte in alle QR-PDFs einbetten."""
+    fonts = {
+        "regular": "GoogleSansFlex-Regular",
+        "semibold": "GoogleSansFlex-SemiBold",
+        "bold": "GoogleSansFlex-Bold",
     }
+    for name in fonts.values():
+        pdfmetrics.registerFont(TTFont(name, str(FONT_DIR / f"{name}.ttf")))
+    pdfmetrics.registerFontFamily(
+        "GoogleSansFlex",
+        normal=fonts["regular"],
+        bold=fonts["bold"],
+        italic=fonts["regular"],
+        boldItalic=fonts["bold"],
+    )
+    return fonts
 
 
 PDF_FONTS = register_pdf_fonts()
@@ -102,7 +57,9 @@ def make_qr_image(data: str):
     return qr.make_image(fill_color="black", back_color="white").convert("RGB")
 
 
-def draw_centered_text(pdf_canvas: canvas.Canvas, text: str, y: float, font: str, size: int) -> None:
+def draw_centered_text(
+    pdf_canvas: canvas.Canvas, text: str, y: float, font: str, size: int
+) -> None:
     """Zeichnet eine Textzeile horizontal zentriert auf eine A4-PDF-Seite."""
 
     page_width, _ = A4
@@ -119,7 +76,7 @@ def draw_paragraph(
     width: float,
     height: float,
     *,
-    font_name: str = "Helvetica",
+    font_name: str = PDF_FONTS["regular"],
     font_size: int = 11,
     leading: int | None = None,
     alignment=TA_CENTER,
@@ -152,7 +109,7 @@ def build_room_qr_pdf(room: dict, room_url: str) -> bytes:
     """Erstellt ein einseitiges PDF mit QR-Code für einen Raum."""
 
     buffer = BytesIO()
-    pdf_canvas = canvas.Canvas(buffer, pagesize=A4)
+    pdf_canvas = canvas.Canvas(buffer, pagesize=A4, initialFontName=PDF_FONTS["regular"])
     page_width, page_height = A4
 
     room_name = room.get("name", "Raum")
@@ -188,9 +145,11 @@ def build_room_qr_pdf(room: dict, room_url: str) -> bytes:
         mask="auto",
     )
 
+    qr_image.close()
+
     intro_text = (
-        "Damit die Werkstatt sauber und ordentlich bleibt, bitten wir dich,\n"
-        "vor der Nutzung den QR-Code zu scannen und das Formular auszufüllen."
+        f"Raum: {room_name}. Bitte scanne vor der Nutzung den QR-Code\n"
+        "und dokumentiere die Nutzung im Formular. Vielen Dank!"
     )
 
     draw_paragraph(
@@ -212,3 +171,17 @@ def build_room_qr_pdf(room: dict, room_url: str) -> bytes:
 
     buffer.seek(0)
     return buffer.getvalue()
+
+
+def room_qr_pdf_response(room: dict) -> StreamingResponse:
+    """Ein gemeinsamer PDF-Renderer für globale Reader- und geschützte Admin-Routen."""
+    pdf_bytes = build_room_qr_pdf(room, room_qr_url(room))
+    filename = f"zelter5-qr-{safe_download_slug(room['slug'])}.pdf"
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "private, no-store",
+        },
+    )

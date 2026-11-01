@@ -4,6 +4,7 @@
 {% block content %}
 <section class="card wide">
   <h1>Raum-Nutzung</h1>
+  <p><a href="/admin/raumzugaenge">Raumzugänge und QR-Codes verwalten</a></p>
   <p class="muted">Alle Einträge im gleichen Überblick, mit direktem Sprung in die Details.</p>
 
   <form class="admin-filter-form" method="get" action="/admin" aria-label="Admin-Filter">
@@ -126,24 +127,5 @@
   {% endif %}
 </section>
 
-<div class="image-viewer" data-image-viewer hidden>
-  <div class="image-viewer-backdrop" data-viewer-close></div>
-  <div class="image-viewer-panel" role="dialog" aria-modal="true" aria-label="Bilder ansehen">
-    <div class="image-viewer-topbar">
-      <div class="image-viewer-meta">
-        <strong>Bilder</strong>
-        <span data-viewer-count></span>
-      </div>
-      <button class="image-viewer-close" type="button" data-viewer-close aria-label="Viewer schließen">×</button>
-    </div>
-    <div class="image-viewer-stage">
-      <button class="image-viewer-nav image-viewer-nav-prev" type="button" data-viewer-prev aria-label="Vorheriges Bild">‹</button>
-      <img data-viewer-image alt="Hochgeladenes Bild">
-      <button class="image-viewer-nav image-viewer-nav-next" type="button" data-viewer-next aria-label="Nächstes Bild">›</button>
-    </div>
-    <div class="image-viewer-controls">
-      <p class="image-viewer-hint">Mit den Pfeiltasten navigieren, mit Esc schließen.</p>
-    </div>
-  </div>
-</div>
+{% include "_image_viewer.html" %}
 {% endblock %}

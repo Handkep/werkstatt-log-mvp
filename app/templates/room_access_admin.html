@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Raumzugänge{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Raumzugänge</h1>
+  <p class="muted">Jeder gültige Raum-QR-Code erlaubt das Lesen aller Logbücher und Bilder sowie den Nachdruck aller Raumcodes. Der Link öffnet weiterhin das jeweilige Raumformular.</p>
+  {% if request.query_params.get('erneuert') == '1' %}
+    <p class="success-note" role="status">Alle QR-Zugänge erneuert. Bisherige Codes und alle Reader-Sitzungen sind ungültig. Bitte alle Raumcodes neu ausdrucken und aushängen.</p>
+  {% endif %}
+  <div class="room-grid">
+  {% for room in rooms %}
+    <section class="room-card">
+      <h2>{{ room.name }}</h2>
+      <p>Schlüsselversion {{ room.qr_key_version }}</p>
+      <a class="button secondary-button" href="/admin/rooms/{{ room.id }}/qr.pdf" download>QR-Code ausdrucken</a>
+      <div data-access-link-control>
+        <button type="button" class="secondary-button" data-copy-access-link="/admin/rooms/{{ room.id }}/access-link" data-csrf-token="{{ csrf_token }}">Zugangslink kopieren</button>
+        <p data-access-link-status role="status" aria-live="polite" hidden></p>
+      </div>
+    </section>
+  {% endfor %}
+  </div>
+  <h2>Globaler Widerruf</h2>
+  <p>Reader können alle Raumcodes nachdrucken. Deshalb werden bei einem Widerruf sämtliche Raumtokens und Reader-Sitzungen gemeinsam gesperrt.</p>
+  <form method="post" action="/admin/reader-access/rotate" data-confirm="Alle QR-Zugänge erneuern? Sämtliche bisherigen Raumcodes und Reader-Sitzungen werden ungültig. Danach müssen alle Raumcodes neu ausgedruckt werden.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" class="danger-button">Alle QR-Zugänge erneuern</button>
+  </form>
+  <p><a href="/admin">Zurück zur Verwaltung</a></p>
+</section>
+{% endblock %}

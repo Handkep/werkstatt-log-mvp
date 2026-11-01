@@ -99,9 +99,14 @@
   display: none;
 }
 
-.mobile-entry-list {
+.mobile-entry-list,
+.booking-card-list {
   gap: 12px;
   margin-top: 18px;
+}
+
+.booking-card-list {
+  display: grid;
 }
 
 .mobile-entry-card {
@@ -118,6 +123,10 @@
 .mobile-entry-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 28px var(--shadow);
+}
+
+.mobile-entry-card .condition-pill {
+  justify-self: start;
 }
 
 .mobile-entry-card-problem {

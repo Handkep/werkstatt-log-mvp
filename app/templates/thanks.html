@@ -40,7 +40,7 @@
 
   <p class="card-link">
     {% if room %}
-      <a class="button" href="/r/{{ room.slug }}{% if room_mode %}?mode=room{% endif %}">Noch einen Eintrag für {{ room.name }} anlegen</a>
+      <a class="button" href="/r/{{ room.slug }}">Noch einen Eintrag für {{ room.name }} anlegen</a>
     {% else %}
       <a class="button" href="/">Zu den Räumen</a>
     {% endif %}

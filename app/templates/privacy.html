@@ -1,26 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Datenschutz{% endblock %}
-
 {% block content %}
 <section class="card">
   <h1>Datenschutz</h1>
-
-  <p>
-    Diese App speichert Angaben zur Dokumentation der Raumnutzung.
-    Erfasst werden Name, Haus, Bemerkung, Zeitpunkt und optional hochgeladene Bilder.
-  </p>
-
-  <p>
-    Die gespeicherten Daten werden nicht an Dritte weitergegeben und nur von berechtigten
-    Personen eingesehen. Sie dienen ausschließlich der internen Nachvollziehbarkeit der
-    Nutzung.
-  </p>
-
-  <p>
-    Wenn ein Eintrag korrigiert oder entfernt werden soll, wende dich an die verantwortliche
-    Person für den jeweiligen Raum.
-  </p>
-
+  <p>Diese App dokumentiert die Nutzung gemeinsamer Räume. Sie speichert Name, Haus,
+    Raum, Zustand, Bemerkungen, gegebenenfalls Zusatzangaben, Zeitpunkt und freiwillig hochgeladene Bilder.
+    Allgemeine Anmerkungen werden mit Nachricht, Zeitpunkt und optionalem Namen gespeichert.</p>
+  <p>Die Formulare sind öffentlich. Gespeicherte Nutzungsdaten und zugehörige Bilder sind
+    für Personen mit gültiger globaler Leseberechtigung und für die Administration einsehbar.
+    Allgemeine Anmerkungen kann ausschließlich die Administration lesen.
+    Diese Ansichten und QR-PDFs werden mit einer Anweisung gegen Browser- und Proxy-Caching ausgeliefert.</p>
+  <p>Der QR-Code im Raum enthält einen geheimen Zugangsschlüssel. Beim Scannen wird er gegen
+    eine serverseitige Lesesitzung eingetauscht und aus der Adresszeile entfernt.
+    Ein für JavaScript nicht lesbares, dauerhaftes Cookie merkt die globale Sitzung standardmäßig 365 Tage
+    (die Administration kann diese Dauer konfigurieren). Jeder erfolgreiche geschützte Lesezugriff verlängert
+    Datenbank- und Cookie-Laufzeit erneut um diese Dauer; öffentliche Seiten und fehlgeschlagene Anfragen tun das nicht.
+    Ein Browserneustart beendet den Zugang nicht. Gespeichert werden eine gehashte Sitzungskennung,
+    Ablaufzeit und die globale Berechtigungsversion; eine Anmeldung mit Namen ist dafür nicht nötig.</p>
+  <p>Mit Leseberechtigung kannst du QR-Codes sämtlicher Räume als PDF ausdrucken und Zugangslinks kopieren.
+    Wer einen dieser Codes oder Links erhält, kann ebenfalls alle Raumlogbücher und zugehörigen Bilder lesen.
+    Ein globaler Widerruf durch die Administration sperrt alle bisherigen Codes und Reader-Sitzungen gemeinsam.
+    Das Löschen der Website-Cookies entfernt die Sitzung aus deinem Browser.</p>
+  <p>Bilder werden geprüft und ohne eingebettete EXIF-, GPS- und sonstige Metadaten neu gespeichert.
+    Das gilt für neue Uploads; bereits vorhandene Bilder werden nicht automatisch verändert.
+    Sichtbare Inhalte eines Fotos und der ursprüngliche Dateiname können weiterhin personenbezogene Angaben enthalten.</p>
+  <p>Wenn die Administration E-Mail-Benachrichtigungen aktiviert hat, werden Angaben zur Nutzung
+    ohne Bildanhänge über den konfigurierten E-Mail-Dienst an die eingerichtete Empfängeradresse übermittelt.
+    Diese Nachrichten sind nicht Teil einer automatischen Löschung in der App.</p>
+  <p>Name, Haus und Nummer werden standardmäßig schon beim Ausfüllen auf diesem Gerät gespeichert
+    und beim nächsten Raumformular wieder eingesetzt. Du kannst „Name, Haus und Nummer auf diesem Gerät merken“
+    ausschalten oder mit „Gespeicherte Eingaben entfernen“ die Werte löschen und das Merken ausschalten.
+    Diese Einstellung bleibt auch nach einem Browserneustart erhalten.
+    Unter „Hilfe &amp; Infos“ wird der gespeicherte Name im optionalen Namensfeld vorgefüllt.
+    Für eine anonyme Nachricht kannst du ihn dort entfernen, ohne das gespeicherte Raumprofil zu ändern.
+    Nachrichtentexte, Bemerkungen, Zustände und Bilder werden nicht im Browser-Speicher abgelegt.
+    Die gewählte Darstellung (hell/dunkel) darf unabhängig davon gespeichert werden.
+    Browser-eigene Autofill-Funktionen werden in den Einstellungen deines Browsers verwaltet.</p>
+  <p>Zum Schutz vor Spam wird eine mit einem geheimen Schlüssel abgeleitete Kennung der IP-Adresse
+    mit Zähler und Ablaufzeit in der Datenbank gespeichert. Sie wird nach Ablauf des Zeitfensters bei
+    der nächsten Formularübermittlung entfernt. Die App protokolliert keine Formularinhalte;
+    Webserver oder Reverse Proxy können eigene Zugriffsprotokolle führen.</p>
+  <p>Beim Löschen eines Nutzungseintrags wird dieser zunächst nur intern als gelöscht markiert.
+    Er und seine Bilder sind danach über die App nicht mehr abrufbar, bleiben jedoch in Datenbank,
+    Dateispeicher und gegebenenfalls Backups erhalten. Eine automatische endgültige Löschung ist
+    derzeit nicht eingerichtet. Bei Berichtigungs- oder Löschwünschen wende dich an die für den Raum
+    verantwortliche Person. Verantwortliche, Kontaktadresse, Rechtsgrundlage und verbindliche
+    Aufbewahrungsfristen müssen vom Betreiber für den konkreten Einsatz ergänzt werden.</p>
   <p><a href="/">Zur Raumübersicht</a></p>
 </section>
 {% endblock %}

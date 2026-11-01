@@ -3,14 +3,39 @@
 
 {% block content %}
 <section class="card">
-  <h1>{{ room.name }}</h1>
+  <div class="room-heading" data-access-link-control>
+    <h1>{{ room.name }}</h1>
+    {% if has_read_access %}
+      <div class="room-heading-actions">
+        <a class="room-heading-action" href="{% if admin_authenticated %}/admin/rooms/{{ room.id }}/qr.pdf{% else %}/r/{{ room.slug }}/qr.pdf{% endif %}" download
+           aria-label="QR-Code ausdrucken" title="QR-Code als PDF herunterladen">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <rect x="3" y="3" width="6" height="6" rx="0.8" />
+            <rect x="15" y="3" width="6" height="6" rx="0.8" />
+            <rect x="3" y="15" width="6" height="6" rx="0.8" />
+            <path d="M15 15h3v3h3v3h-6v-3M21 15h.01M12 3v3M12 12h3M3 12h3M9 12h.01M12 18v3" />
+          </svg>
+        </a>
+        <button type="button" class="room-heading-action" data-copy-access-link="{% if admin_authenticated %}/admin/rooms/{{ room.id }}/access-link{% else %}/r/{{ room.slug }}/access-link{% endif %}"{% if admin_authenticated %} data-csrf-token="{{ csrf_token }}"{% endif %}
+                aria-label="Zugangslink kopieren" title="Zugangslink kopieren">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7" />
+          </svg>
+        </button>
+      </div>
+      <p class="room-heading-status" data-access-link-status role="status" aria-live="polite" hidden></p>
+    {% endif %}
+  </div>
   <p class="muted">{{ room.intro_text }}</p>
+  <p data-room-access-status role="status" aria-live="polite" hidden></p>
 
   {% if form_error %}
     <p class="error-note" role="alert">{{ form_error }}</p>
   {% endif %}
 
-  <form method="post" action="/r/{{ room.slug }}/submit{% if room_mode %}?mode=room{% endif %}" enctype="multipart/form-data" data-remember-usage-form data-has-form-values="{% if form_values %}1{% else %}0{% endif %}">
+  <form method="post" action="/r/{{ room.slug }}/submit" enctype="multipart/form-data" data-remember-usage-form data-has-form-values="{% if form_values %}1{% else %}0{% endif %}">
     <label>
       Name
       <input name="person_name" required autocomplete="name" maxlength="{{ limits.max_name_length }}" value="{{ form_values.person_name or '' }}" placeholder="{{ name_placeholder }}" data-remember-name>
@@ -30,7 +55,7 @@
 
     <label>
       Nummer
-      <input name="house_number" required inputmode="numeric" pattern="[0-9]+" maxlength="{{ limits.max_house_length }}" value="{{ form_values.house_number or '' }}" placeholder="z. B. 1" data-remember-house-number>
+      <input name="house_number" required inputmode="numeric" pattern="[0-9]+" maxlength="{{ limits.max_house_number_length }}" value="{{ form_values.house_number or '' }}" placeholder="z. B. 1" data-remember-house-number>
     </label>
 
     <fieldset>
@@ -103,14 +128,38 @@
     <p class="form-note">
       Mit dem Speichern akzeptierst du die <a href="/datenschutz">Datenschutzhinweise</a>.<br>
       Hast du Fragen, Verbesserungsvorschläge oder Anmerkungen?
-      <a href="/anmerkungen">Lass gerne eine Nachricht da.</a>
+      <a href="/hilfe">Lass gerne eine Nachricht da.</a>
     </p>
 
+    <div class="remember-settings">
+      <label class="remember-choice">
+        <input type="checkbox" data-remember-enabled checked>
+        <span>Name, Haus und Nummer auf diesem Gerät merken</span>
+      </label>
+      <button type="button" data-forget-personal>Gespeicherte Eingaben entfernen</button>
+      <p class="field-hint" data-remember-status role="status" aria-live="polite"></p>
+    </div>
     <button type="submit">Nutzung speichern</button>
   </form>
 
-  <p class="card-link">
-    <a href="/letzte-buchungen?raum={{ room.slug }}">Letzte Buchungen für {{ room.name }} ansehen</a>
-  </p>
 </section>
+
+<section class="card recent-bookings" aria-labelledby="recent-bookings-title">
+  <div class="section-heading">
+    <h2 id="recent-bookings-title">Letzte Buchungen</h2>
+    {% if has_read_access %}
+      <a href="{{ '/admin/logbuch' if admin_authenticated else '/logbuch' }}?raum={{ room.slug }}">Alle Buchungen anzeigen</a>
+    {% endif %}
+  </div>
+  {% if has_read_access %}
+    <div data-room-bookings="{% if admin_authenticated %}/admin/rooms/{{ room.id }}/recent-bookings{% else %}/r/{{ room.slug }}/recent-bookings{% endif %}" aria-busy="true">
+      <p class="muted" role="status">Buchungen werden geladen …</p>
+    </div>
+    <noscript><p>Öffne „Alle Buchungen anzeigen“, um das Logbuch zu lesen.</p></noscript>
+  {% else %}
+    <p class="muted">Zum Lesen der Buchungen bitte einen aktuellen Raum-QR-Code scannen.</p>
+  {% endif %}
+</section>
+
+{% if has_read_access %}{% include "_image_viewer.html" %}{% endif %}
 {% endblock %}

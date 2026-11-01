@@ -3,6 +3,42 @@ form {
   gap: 16px;
 }
 
+.remember-settings {
+  display: grid;
+  gap: 8px;
+}
+
+.remember-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.remember-choice input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.remember-settings [data-forget-personal] {
+  justify-self: start;
+  width: auto;
+  min-height: 44px;
+  padding: 8px 0;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  font-size: 0.86rem;
+}
+
+.remember-settings [data-remember-status] {
+  margin: 0;
+}
+
 label,
 fieldset {
   display: grid;
@@ -30,6 +66,7 @@ legend {
 }
 
 .radio-option {
+  position: relative;
   flex: 1 1 0;
   min-width: 0;
 }
@@ -40,6 +77,11 @@ legend {
 
 .radio-option input {
   position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -162,6 +204,7 @@ textarea {
 }
 
 .file-drop {
+  position: relative;
   display: grid;
   gap: 4px;
   justify-items: center;
@@ -173,6 +216,11 @@ textarea {
   cursor: pointer;
   text-align: center;
   transition: border-color var(--motion-fast) var(--ease-out), background-color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+
+.file-drop:focus-within {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .file-drop:hover {

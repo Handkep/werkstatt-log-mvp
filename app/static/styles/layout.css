@@ -4,50 +4,23 @@
   padding: 24px 16px;
 }
 
-.page.is-room-mode {
-  width: min(760px, 100%);
-  padding-top: 14px;
-}
-
 .site-header {
   display: grid;
   gap: 14px;
   margin-bottom: 18px;
 }
 
-.room-mode-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.room-mode-overview-link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0 13px;
-  background: var(--control-bg);
-  color: var(--soft-text);
-  text-decoration: none;
-  font-size: 0.92rem;
-  font-weight: 700;
-  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
-}
-
-.room-mode-overview-link:hover {
-  transform: translateY(-1px);
-  color: var(--text);
-}
-
 .site-header-top {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 12px;
+}
+
+.site-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .site-brand {
@@ -55,6 +28,7 @@
   gap: 2px;
   color: inherit;
   text-decoration: none;
+  min-width: 0;
 }
 
 .site-brand-kicker {
@@ -71,23 +45,27 @@
 }
 
 .site-nav {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
 .site-nav-link {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0 14px;
+  padding: 8px 6px;
   background: var(--control-bg);
   color: var(--soft-text);
   text-decoration: none;
   font-size: 0.94rem;
   font-weight: 650;
+  text-align: center;
+  overflow-wrap: anywhere;
   transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
 }
 
@@ -102,8 +80,66 @@
   color: var(--primary-text);
 }
 
-.site-nav-link.is-admin {
-  border-style: dashed;
+.admin-menu {
+  position: relative;
+  color: var(--muted);
+}
+
+.admin-menu-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.admin-menu-toggle::-webkit-details-marker {
+  display: none;
+}
+
+.admin-menu-toggle:hover,
+.admin-menu.is-current .admin-menu-toggle,
+.admin-menu[open] .admin-menu-toggle {
+  background: var(--control-bg);
+  color: var(--text);
+}
+
+.admin-menu-toggle:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.admin-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  width: min(240px, calc(100vw - 20px));
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--control-bg);
+  box-shadow: 0 12px 30px var(--shadow);
+}
+
+.admin-menu-panel a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--soft-text);
+  text-decoration: none;
+}
+
+.admin-menu-panel a:hover,
+.admin-menu-panel a[aria-current] {
+  background: var(--card-bg);
+  color: var(--text);
 }
 
 .site-footer {
@@ -115,8 +151,8 @@
 
 .theme-toggle {
   flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0;
@@ -136,12 +172,8 @@
 }
 
 @media (max-width: 640px) {
-  .page.is-room-mode {
-    padding: 12px 10px;
-  }
-
-  .room-mode-header {
-    margin-bottom: 12px;
+  .page {
+    padding: 16px 10px;
   }
 
   .site-header {
@@ -154,16 +186,14 @@
   }
 
   .site-brand strong {
-    font-size: 1.45rem;
+    font-size: 1.25rem;
   }
 
   .site-nav {
-    gap: 7px;
+    gap: 6px;
   }
 
   .site-nav-link {
-    min-height: 38px;
-    padding: 0 12px;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
   }
 }

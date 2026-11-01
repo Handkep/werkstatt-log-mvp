@@ -52,5 +52,32 @@ LIMITS = {
     "max_general_note_length": MAX_GENERAL_NOTE_LENGTH,
 }
 
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Unabhängige Grenzen für komprimierte Dateien, decodierte Bilder und Gesamtspeicher.
+MAX_IMAGE_DIMENSION = positive_int_env("MAX_IMAGE_DIMENSION", 10000)
+MAX_IMAGE_PIXELS = positive_int_env("MAX_IMAGE_PIXELS", 20_000_000)
+MAX_UPLOAD_STORAGE_BYTES = positive_int_env("MAX_UPLOAD_STORAGE_MB", 1024) * 1024 * 1024
+MAX_REQUEST_SIZE_BYTES = (
+    positive_int_env("MAX_REQUEST_SIZE_MB", MAX_UPLOAD_IMAGES * MAX_UPLOAD_SIZE_MB + 1)
+    * 1024
+    * 1024
+)
+REQUEST_BODY_TIMEOUT_SECONDS = positive_int_env("REQUEST_BODY_TIMEOUT_SECONDS", 30)
+RATE_LIMIT_COUNT = positive_int_env("RATE_LIMIT_COUNT", 10)
+RATE_LIMIT_GLOBAL_COUNT = positive_int_env("RATE_LIMIT_GLOBAL_COUNT", 100)
+RATE_LIMIT_WINDOW_SECONDS = positive_int_env("RATE_LIMIT_WINDOW_SECONDS", 600)
+SQLITE_BUSY_TIMEOUT_MS = positive_int_env("SQLITE_BUSY_TIMEOUT_MS", 5000)
+MAX_HOUSE_NUMBER_LENGTH = max(1, MAX_HOUSE_LENGTH - 2)
+LIMITS["max_house_number_length"] = MAX_HOUSE_NUMBER_LENGTH
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",")
+    if host.strip()
+]
+TRUSTED_PROXY_NETWORKS = [
+    network.strip()
+    for network in os.environ.get("TRUSTED_PROXIES", "").split(",")
+    if network.strip()
+]
+
+READER_SESSION_SECONDS = positive_int_env("READER_SESSION_DAYS", 365) * 24 * 60 * 60

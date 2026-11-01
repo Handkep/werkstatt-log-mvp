@@ -3,12 +3,17 @@ services:
     build: .
     container_name: werkstatt-log
     restart: unless-stopped
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    init: true
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers --limit-concurrency 32
     ports:
-      - "${HOST_PORT:-9000}:8000"
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT:-9000}:8000"
     volumes:
-      - ./app:/app/app
       - ./data:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       - DATA_DIR=/data
       - SMTP_HOST=${SMTP_HOST:-}
@@ -21,9 +26,22 @@ services:
       - SMTP_SSL=${SMTP_SSL:-false}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
-      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-http://192.168.2.127:9000}
-      - MAX_UPLOAD_IMAGES=${MAX_UPLOAD_IMAGES:-10}
-      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-50}
+      - QR_MASTER_KEY=${QR_MASTER_KEY:-}
+      - READER_SESSION_DAYS=${READER_SESSION_DAYS:-365}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-http://localhost:9000}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,[::1]}
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-}
+      - MAX_UPLOAD_IMAGES=${MAX_UPLOAD_IMAGES:-5}
+      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-5}
+      - MAX_REQUEST_SIZE_MB=${MAX_REQUEST_SIZE_MB:-26}
+      - MAX_UPLOAD_STORAGE_MB=${MAX_UPLOAD_STORAGE_MB:-1024}
+      - MAX_IMAGE_DIMENSION=${MAX_IMAGE_DIMENSION:-10000}
+      - MAX_IMAGE_PIXELS=${MAX_IMAGE_PIXELS:-20000000}
+      - REQUEST_BODY_TIMEOUT_SECONDS=${REQUEST_BODY_TIMEOUT_SECONDS:-30}
+      - RATE_LIMIT_COUNT=${RATE_LIMIT_COUNT:-10}
+      - RATE_LIMIT_GLOBAL_COUNT=${RATE_LIMIT_GLOBAL_COUNT:-100}
+      - RATE_LIMIT_WINDOW_SECONDS=${RATE_LIMIT_WINDOW_SECONDS:-600}
+      - SQLITE_BUSY_TIMEOUT_MS=${SQLITE_BUSY_TIMEOUT_MS:-5000}
       - MAX_NAME_LENGTH=${MAX_NAME_LENGTH:-100}
       - MAX_HOUSE_LENGTH=${MAX_HOUSE_LENGTH:-10}
       - MAX_COMMENT_LENGTH=${MAX_COMMENT_LENGTH:-2000}

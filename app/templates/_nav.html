@@ -4,13 +4,28 @@
       <span class="site-brand-kicker">Zelter5</span>
       <strong>{{ site_title }}</strong>
     </a>
-    {% include "theme_toggle.html" %}
+    <div class="site-header-actions">
+      {% include "theme_toggle.html" %}
+      <details class="admin-menu{% if admin_section_active %} is-current{% endif %}" data-admin-menu>
+        <summary class="admin-menu-toggle" aria-label="Verwaltung" title="Verwaltung">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="m9 3-1 3-3 1 1 4-2 2 2 3 3-1 2 3h3l2-3 3 1 2-3-2-2 1-4-3-1-1-3z" />
+            <circle cx="12" cy="10.5" r="3" />
+          </svg>
+        </summary>
+        <nav class="admin-menu-panel" aria-label="Verwaltung">
+          {% for item in admin_items %}
+            <a href="{{ item.href }}"{% if item.is_current %} aria-current="page"{% endif %}>{{ item.label }}</a>
+          {% endfor %}
+        </nav>
+      </details>
+    </div>
   </div>
 
   <nav class="site-nav" aria-label="Hauptnavigation">
     {% for item in nav_items %}
       <a
-        class="site-nav-link{% if item.is_current %} is-current{% endif %}{% if item.section == 'admin' %} is-admin{% endif %}"
+        class="site-nav-link{% if item.is_current %} is-current{% endif %}"
         href="{{ item.href }}"
         {% if item.is_current %}aria-current="page"{% endif %}
       >

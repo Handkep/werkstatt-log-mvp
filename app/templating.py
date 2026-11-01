@@ -1,5 +1,6 @@
 """Template-Setup und UI-Helfer."""
 
+import hashlib
 import json
 import random
 from datetime import datetime
@@ -8,8 +9,18 @@ from zoneinfo import ZoneInfo
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
+from app.auth import request_is_admin
 from app.config import BASE_DIR, LIMITS, SITE_TITLE
 from app.constants import FUNNY_NAME_EXAMPLES, NAV_GROUPS
+
+# Ein gemeinsamer Inhalts-Hash umfasst auch per @import geladene Stylesheets.
+ASSET_VERSION = hashlib.sha256(
+    b"".join(
+        path.read_bytes()
+        for path in sorted((BASE_DIR / "static").rglob("*"))
+        if path.suffix in {".js", ".css"}
+    )
+).hexdigest()[:12]
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
@@ -61,45 +72,36 @@ def display_extra_fields(room: dict, raw_values: str | None) -> list[dict]:
 def build_nav(nav_section: str, nav_current: str) -> dict:
     """Erstellt Navigationsdaten für Templates."""
 
-    nav_groups = []
-    visible_items = []
+    def items(section: str) -> list[dict]:
+        return [{**item, "is_current": nav_current == item["id"]} for item in NAV_GROUPS[section]]
 
-    for section_id, items in NAV_GROUPS.items():
-        nav_items = []
-
-        for item in items:
-            nav_item = {
-                **item,
-                "section": section_id,
-                "is_current": nav_current == item["id"],
-            }
-            nav_items.append(nav_item)
-
-            if section_id != "meta":
-                visible_items.append(nav_item)
-
-        nav_groups.append(
-            {
-                "id": section_id,
-                "label": section_id,
-                "items": nav_items,
-                "is_current_section": nav_section == section_id,
-            }
-        )
-
-    return {"nav_groups": nav_groups, "nav_items": visible_items}
+    return {
+        "nav_items": items("public"),
+        "admin_items": items("admin"),
+        "admin_section_active": nav_section == "admin",
+    }
 
 
 def page_context(request: Request, nav_section: str, nav_current: str, **kwargs) -> dict:
     """Baut den gemeinsamen Template-Kontext für alle Seiten."""
 
+    admin_authenticated = request_is_admin(request)
+    navigation = build_nav(nav_section, nav_current)
+    for item in navigation["nav_items"]:
+        if item["id"] == "logbook" and admin_authenticated:
+            item["href"] = "/admin/logbuch"
+        if item["id"] == "rooms" and request.url.path.startswith("/r/"):
+            item["label"] = "Alle Räume"
     return {
         "request": request,
+        "admin_authenticated": admin_authenticated,
         "nav_section": nav_section,
         "nav_current": nav_current,
         "site_title": SITE_TITLE,
+        "asset_version": ASSET_VERSION,
+        "csp_nonce": getattr(request.state, "csp_nonce", ""),
         "limits": LIMITS,
-        **build_nav(nav_section, nav_current),
+        **navigation,
         **kwargs,
     }
 

@@ -1,344 +1,395 @@
 # Zelter5 Raumlog
 
-Mehrraum-Log für die gemeinsamen Bereiche von Zelter5.
-Die Anwendung ermöglicht es Nutzerinnen und Nutzern, per QR-Code einen Raum aufzurufen und dessen Nutzung kurz zu dokumentieren.
+FastAPI-Anwendung zur Dokumentation gemeinsamer Räume: Werkstatt, Dachterrasse,
+Sommerküche, Sauna und Ruheraum. Öffentliche QR-Formulare erfassen Nutzungen und
+Anmerkungen. Ein Raum-QR-Code vermittelt eine globale serverseitige Leseberechtigung für
+alle Raumlogbücher, Bilder, QR-PDF-Downloads und das Kopieren von Zugangslinks, ohne Bewohnerkonto.
+Die Administration verwaltet zusätzlich allgemeine Nachrichten, Soft-Deletes und Raumschlüssel.
 
-## Funktionen
+Die Einrichtung des Master-Schlüssels, der erste Ausdruck und die Rotation stehen in
+[QR_ACCESS.md](QR_ACCESS.md).
 
-* Raumübersicht für mehrere gemeinsame Bereiche
-* QR-Code-fähige Direktlinks pro Raum
-* Formular pro Raum mit Name, Haus, Zustand, Bemerkung und optionalen Bildern
-* Speicherung der Einträge in SQLite
-* serverseitig validierter Upload von Bildern pro Nutzungseintrag
-* Übersicht der letzten Buchungen
-* allgemeine Anmerkungen
-* per HTTP Basic Auth geschützte Admin-Ansicht mit Detailansicht und Soft-Delete
-* optionale E-Mail-Benachrichtigung bei neuen Einträgen
-* Docker-Setup für einfachen Betrieb auf einem Server
+## Starten
 
-## Aktuell eingerichtete Räume
-
-* Werkstatt
-* Dachterrasse
-* Sommerküche
-* Sauna
-* Ruheraum
-
-Die Raumkonfiguration befindet sich aktuell im Code in `app/constants.py` in `ROOM_DEFINITIONS`.
-
-## Tech Stack
-
-* Python
-* FastAPI
-* Uvicorn
-* Jinja2 Templates
-* SQLite
-* Docker / Docker Compose
-
-## Projektstruktur
-
-Beispielhafte Struktur:
-
-```text
-.
-├── app/
-│   ├── main.py
-│   ├── static/
-│   └── templates/
-├── data/
-│   ├── app.db
-│   └── uploads/
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-└── README.md
-```
-
-`data/` enthält persistente Daten und sollte im Produktivbetrieb nicht versehentlich gelöscht werden.
-
-## Lokal starten
-
-### Voraussetzungen
-
-* Python 3.11 oder neuer empfohlen
-* `pip`
-* optional: `venv`
-
-### Installation
+Python 3.11 oder neuer:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-### Entwicklung starten
-
-Für den Admin-Bereich müssen Zugangsdaten gesetzt sein:
-
-```bash
 export ADMIN_USERNAME=admin
-export ADMIN_PASSWORD=ein-sicheres-passwort
+export ADMIN_PASSWORD=ein-langes-eigenes-passwort
+uvicorn app.main:app --env-file .env --no-proxy-headers --limit-concurrency 32
 ```
+
+Lokal: <http://localhost:8000>. Für Entwicklung optional `--reload` ergänzen.
+Umgebungsvariablen müssen beim Python-Start exportiert sein; die `.env` wird nur
+von Docker Compose automatisch und beim obigen lokalen Start ausdrücklich über `--env-file` eingelesen.
+
+Docker:
 
 ```bash
-uvicorn app.main:app --reload
+mkdir -p data/uploads
+docker compose up --build -d
 ```
 
-Danach öffnen:
-
-```text
-http://localhost:8000/
-http://localhost:8000/admin
-```
-
-## Mit Docker starten
+Standard: <http://localhost:9000>. `./data:/data` enthält die persistenten Daten.
+Der Container läuft ohne Reload und ohne Quellcode-Bind-Mount; nach Codeänderungen
+neu bauen. `.env`, Daten, Git-Metadaten und Archive gelangen nicht in den Build-Kontext.
+Der Prozess läuft unprivilegiert als `APP_UID:APP_GID` (Standard `1000:1000`),
+auch wenn alle Linux-Capabilities entfernt sind. Für einen anderen lokalen Benutzer
+vor dem Start `APP_UID` und `APP_GID` passend zum Eigentümer von `data/` setzen:
 
 ```bash
-docker compose up --build
+APP_UID="$(id -u)" APP_GID="$(id -g)" docker compose up --build -d
 ```
 
-Danach öffnen:
+Die Werte lassen sich auch in `.env` hinterlegen. Das Datenverzeichnis muss für
+diese UID beschreibbar sein; SQLite benötigt neben der DB-Datei auch Schreibrechte
+im Verzeichnis für WAL-/SHM-Dateien. Vorhandene Daten werden weder automatisch
+umgechownt noch durch eine neue Datenbank ersetzt. Bei `attempt to write a readonly
+database` zuerst Eigentümer und die konfigurierte UID/GID prüfen; `chmod 777` ist
+nicht erforderlich. Bei Rootless-Docker oder User-Namespace-Remapping müssen die
+auf dem Host abgebildeten IDs berücksichtigt werden.
 
-```text
-http://localhost:9000/
-http://localhost:9000/admin
-```
+Nach Änderungen den laufenden Dienst mit dem neu gebauten Image neu erstellen.
 
-Im Docker-Setup werden Änderungen in `./app` direkt in den Container gespiegelt. `uvicorn` läuft mit `--reload`, sodass Änderungen an Python-Dateien, Templates und CSS automatisch übernommen werden.
+## Navigation und mobile Nutzung
 
-Der veröffentlichte Host-Port kann über `HOST_PORT` gesetzt werden. Der Standard ist `9000`.
+Alle Ansichten, Formularfelder und Schaltflächen verwenden **Google Sans Flex**.
+Die variablen Webfonts werden lokal mit der App ausgeliefert; es entstehen keine
+Font-Anfragen an Google. QR-PDFs betten dieselbe Schriftfamilie ein. Quellen und
+Lizenz stehen unter [app/static/fonts](app/static/fonts/README.md).
 
-## Persistente Daten
+Die drei Hauptseiten heißen **Räume**, **Logbuch** und **Hilfe & Infos**. Sie stehen
+auch nach einem QR-Scan als gleich breite Tabs im Header. Im geöffneten Raum heißt
+der erste Tab **Alle Räume** und führt zurück zur Übersicht. Das Verwaltungsmenü
+rechts im Header enthält Einträge, Nachrichten und QR-Zugänge; sein Öffnen fordert
+keine Anmeldung an. Erst die gewählte Admin-Seite verwendet HTTP Basic.
 
-Standardmäßig verwendet die Anwendung:
+Unter dem Raumformular stehen die letzten drei nicht gelöschten Buchungen dieses
+Raums als kompakte Karten. **Alle Buchungen anzeigen** öffnet das raumgefilterte
+Logbuch. Die Vorschau wird separat mit Reader-/Admin-Berechtigung nachgeladen;
+das öffentliche Formular enthält keine Buchungsdaten. Bei fehlendem Zugang erscheint
+ein QR-Hinweis. Bildaktionen verwenden denselben geschützten Bildbetrachter wie das Logbuch.
 
-```text
-data/app.db
-data/uploads/
-```
+Die aktuellen Adressen sind `/logbuch`, `/hilfe` und `/admin/nachrichten`.
+Die bisherigen Adressen `/letzte-buchungen`, `/anmerkungen` und `/admin/anmerkungen`
+wurden ohne Weiterleitungen oder Alias-Routen entfernt. Neu erzeugte QR-Links
+benötigen keinen besonderen Formularmodus; der Header ist einheitlich.
 
-Über die Umgebungsvariable `DATA_DIR` kann ein anderer Speicherort gesetzt werden:
+## Zugriffsmodell
 
-```bash
-export DATA_DIR=/pfad/zum/datenverzeichnis
-```
+| Route | Zugriff und Zweck |
+| --- | --- |
+| `/` | öffentliche Raumübersicht |
+| `/r/{raum}` | öffentliches Meldeformular |
+| `/r/{raum}/submit` | öffentliches POST, begrenzt und validiert |
+| `/r/{raum}/qr.pdf` | QR-PDF mit globaler Reader-Sitzung oder Admin-Anmeldung |
+| `/r/{raum}/access-link` | bewusster POST zum Kopieren eines Zugangslinks, nur Reader/Admin |
+| `/r/{raum}/access` | Same-Origin-JSON-POST: Raumtoken gegen globale Reader-Sitzung eintauschen |
+| `/r/{raum}/recent-bookings` | geschütztes HTML-Fragment mit höchstens drei Buchungen des Raums |
+| `/admin/rooms/{id}/recent-bookings` | dieselbe Vorschau unter Admin-Authentifizierung |
+| `/thanks` | öffentliche Bestätigung ohne gespeicherte Personendaten |
+| `/hilfe` | Hilfe & Infos mit öffentlichem Nachrichtenformular, keine eingegangenen Nachrichten |
+| `/admin/nachrichten` | eingereichte Nachrichten, nur Admin |
+| `/logbuch` | globale Reader-Ansicht aller nicht gelöschten Nutzungen |
+| `/admin` | gefilterte Verwaltungsübersicht, nur Admin |
+| `/admin/session/{id}` | aktive Nutzung mit Bildern, nur Admin |
+| `/admin/session/{id}/delete` | POST mit Admin-Anmeldung und CSRF-Token |
+| `/uploads/{filename}` | globale Reader-Sitzung oder Admin, nur DB-Referenzen nicht gelöschter Nutzungen |
+| `/admin/raumzugaenge` | Admin: QR-PDFs, Link-Kopieren und globaler Widerruf |
+| `/admin/reader-access/rotate` | Admin-POST mit CSRF: alle QR-Zugänge und Reader-Sitzungen erneuern |
+| `/datenschutz` | öffentliche Hinweise zum tatsächlichen Verhalten |
 
-Im Docker-Betrieb sollte `DATA_DIR` auf ein Volume zeigen, damit Datenbank und Uploads Container-Neustarts überleben.
+HTTP Basic Auth verwendet `ADMIN_USERNAME` und `ADMIN_PASSWORD`. Fehlen diese,
+bleiben Admin-Routen gesperrt (503); globale Reader-Sitzungen sind unabhängig davon möglich.
+Ohne gültigen Reader-Zugang: 403 ohne `WWW-Authenticate`, unabhängig
+davon, ob eine Bilddatei existiert. Ein Basic-Login-Dialog erscheint ausschließlich im expliziten Admin-Bereich. Mit Lesefreigabe oder Admin-Anmeldung: einheitlich 404 für fehlende,
+gelöschte oder anderweitig nicht zugängliche Bilder/Einträge. Alle dynamischen
+Antworten einschließlich Validierungsfehlern tragen `Cache-Control: private, no-store`.
+Bereits früher heruntergeladene Dateien oder alte Browser-/Proxy-Caches können damit
+nicht rückwirkend entfernt werden; vorhandene Proxy-Caches beim Umstieg leeren.
+Uploads niemals separat als statisches Verzeichnis im Proxy freigeben.
 
-## Konfiguration per Umgebungsvariablen
+Zustandsändernde Admin-Routen prüfen routerweit ein signiertes, höchstens eine
+Stunde gültiges Double-Submit-Token im Formular und Host-only-Cookie. Cookies sind
+HttpOnly, SameSite=Strict und unter HTTPS Secure. Der Signaturschlüssel wird aus den
+Admin-Zugangsdaten abgeleitet und ist workerübergreifend gleich; ein Passwortwechsel
+widerruft Tokens. Lange, geheime Zugangsdaten und HTTPS sind erforderlich.
 
-| Variable        | Pflicht | Standard                  | Beschreibung                                 |
-| --------------- | ------: | ------------------------- | -------------------------------------------- |
-| `DATA_DIR`      |    nein | `../data` relativ zur App | Speicherort für SQLite-Datenbank und Uploads |
-| `ADMIN_USERNAME` |      ja | -                         | Benutzername für den Admin-Bereich           |
-| `ADMIN_PASSWORD` |      ja | -                         | Passwort für den Admin-Bereich               |
-| `PUBLIC_BASE_URL` |    nein | aus Request bzw. Compose-Default | Öffentliche Basis-URL für QR-Code-Links |
-| `MAX_UPLOAD_IMAGES` |    nein | `5`                      | Maximale Anzahl Bilder pro Eintrag           |
-| `MAX_UPLOAD_SIZE_MB` |   nein | `5`                      | Maximale Größe pro Bild in MB                |
-| `MAX_NAME_LENGTH` |      nein | `100`                    | Maximale Länge von Namen                     |
-| `MAX_HOUSE_LENGTH` |     nein | `10`                     | Maximale Länge der kombinierten Hausangabe   |
-| `MAX_COMMENT_LENGTH` |   nein | `2000`                   | Maximale Länge von Bemerkungen und Zusatzfeldern |
-| `MAX_GENERAL_NOTE_LENGTH` | nein | `4000`                 | Maximale Länge allgemeiner Anmerkungen       |
-| `SMTP_HOST`     |    nein | -                         | SMTP-Server für E-Mail-Benachrichtigungen    |
-| `SMTP_PORT`     |    nein | `587`                     | SMTP-Port                                    |
-| `SMTP_FROM`     |    nein | -                         | Absenderadresse                              |
-| `SMTP_TO`       |    nein | -                         | Empfängeradresse                             |
-| `SMTP_USER`     |    nein | leer                      | SMTP-Benutzername                            |
-| `SMTP_PASSWORD` |    nein | leer                      | SMTP-Passwort                                |
-| `SMTP_STARTTLS` |    nein | `true`                    | STARTTLS verwenden                           |
-| `SMTP_SSL`      |    nein | `false`                   | direkte SSL-Verbindung verwenden             |
+## Konfiguration
 
-Wenn `ADMIN_USERNAME` oder `ADMIN_PASSWORD` fehlen, ist der Admin-Bereich nicht offen erreichbar, sondern antwortet mit einem Konfigurationsfehler. Öffentliche Nutzer-Routen bleiben weiterhin ohne Login erreichbar.
+| Variable | Standard | Bedeutung |
+| --- | --- | --- |
+| `DATA_DIR` | `./data` im Repository | DB und Uploads; im Container `/data` |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | leer | Zugang für alle geschützten Daten |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | erlaubte Hostnamen/IPs, kommasepariert, ohne Port |
+| `PUBLIC_BASE_URL` | leer; Compose `http://localhost:9000` | explizite vertrauenswürdige Basis für QR-Links; kein Host-Header-Fallback |
+| `QR_MASTER_KEY` | leer | einmalig kryptografisch zufällig erzeugter 256-Bit-Schlüssel als 64 Hex-Zeichen |
+| `READER_SESSION_DAYS` | `365` | Sliding Expiration: erneute Laufzeit ab jedem erfolgreichen geschützten Reader-Zugriff |
+| `TRUSTED_PROXIES` | leer | explizit vertraute Proxy-IP-Adressen/CIDR-Netze |
+| `APP_UID`, `APP_GID` | `1000`, `1000` | Container-UID/GID; passend zum Eigentümer des Datenverzeichnisses setzen |
+| `HOST_PORT` | `9000` | veröffentlichter Docker-Port |
+| `HOST_BIND` | `0.0.0.0` | Docker-Bind-Adresse; bei lokalem Proxy `127.0.0.1` setzen |
+| `MAX_UPLOAD_IMAGES` | `5` | Bilder je Nutzung |
+| `MAX_UPLOAD_SIZE_MB` | `5` | maximale Eingabe- UND neu codierte Größe je Bild, MiB |
+| `MAX_REQUEST_SIZE_MB` | `26` | gesamte HTTP-Anfrage, inklusive Multipart-Overhead; Python-Default Bilderanzahl × Bildlimit + 1 |
+| `MAX_UPLOAD_STORAGE_MB` | `1024` | Größe aller Dateien im Upload-Verzeichnis, auch alte/verwaiste Dateien |
+| `MAX_IMAGE_DIMENSION` | `10000` | längste Bildseite, Pixel |
+| `MAX_IMAGE_PIXELS` | `20000000` | maximale decodierte Pixelzahl |
+| `REQUEST_BODY_TIMEOUT_SECONDS` | `30` | Gesamtdauer zum Einlesen einer mutierenden Anfrage |
+| `RATE_LIMIT_COUNT` | `10` | öffentliche Formular-/Raumzugang-Versuche je Client und Zeitfenster |
+| `RATE_LIMIT_GLOBAL_COUNT` | `100` | Übermittlungsversuche aller Clients zusammen je Zeitfenster |
+| `RATE_LIMIT_WINDOW_SECONDS` | `600` | Dauer eines festen Fensters ab erstem Versuch |
+| `SQLITE_BUSY_TIMEOUT_MS` | `5000` | Wartezeit bei DB-Sperren |
+| `MAX_NAME_LENGTH` | `100` | Namen |
+| `MAX_HOUSE_LENGTH` | `10` | gesamte Hausangabe, einschließlich zweistelliger Gruppe |
+| `MAX_COMMENT_LENGTH` | `2000` | Bemerkungen und Zusatzfelder |
+| `MAX_GENERAL_NOTE_LENGTH` | `4000` | Anmerkungen |
 
-Im Docker-Betrieb sollte `PUBLIC_BASE_URL` auf die von Nutzerinnen und Nutzern tatsächlich erreichbare URL zeigen. Beim Standard-Port aus `docker-compose.yml` wäre das zum Beispiel:
+Hausgruppen: TH, GH, PH. Nummern enthalten ausschließlich ASCII-Ziffern; mit dem
+Standardlimit sind maximal acht Ziffern möglich, auch im HTML-Formular.
+Ungültige/nicht positive numerische Einstellungen verwenden geloggte Defaults.
+Bei eigenen Uploadlimits alle drei Grenzen für Dateigröße, Dateianzahl und gesamte
+Request-Größe passend konfigurieren. Eine ausgeschöpfte Bildquote verhindert keine
+Nutzung ohne Bilder. Für DB, SMTP, Backups und temporäre Multipart-Dateien zusätzlichen
+Platz reservieren; die Bildquote ist keine Dateisystemquote.
 
-```bash
-PUBLIC_BASE_URL=http://192.168.2.127:9000
-```
-
-Bei einer produktiven Domain entsprechend:
-
-```bash
-PUBLIC_BASE_URL=https://deine-domain.de
-```
-
-Ungültige oder nicht-positive numerische Limit-Werte werden beim Start geloggt und durch sichere Defaults ersetzt.
-
-Die E-Mail-Benachrichtigung ist nur aktiv, wenn mindestens diese Variablen gesetzt sind:
-
-```text
-SMTP_HOST
-SMTP_FROM
-SMTP_TO
-```
-
-## E-Mail-Benachrichtigung einrichten
-
-Beispiel für SMTP mit STARTTLS:
-
-```bash
-export SMTP_HOST=smtp.example.com
-export SMTP_PORT=587
-export SMTP_FROM=raumlog@example.com
-export SMTP_TO=deine-adresse@example.com
-export SMTP_USER=raumlog@example.com
-export SMTP_PASSWORD=dein-passwort
-export SMTP_STARTTLS=true
-export SMTP_SSL=false
-```
-
-Für Anbieter mit direktem SSL ist häufig diese Variante passend:
-
-```bash
-export SMTP_PORT=465
-export SMTP_SSL=true
-export SMTP_STARTTLS=false
-```
-
-Falls der Mailversand fehlschlägt, wird der Nutzungseintrag trotzdem gespeichert. Der Fehler wird nur geloggt.
-
-## QR-Code-Links
-
-Die QR-Codes sollten jeweils direkt auf den passenden Raum zeigen:
-
-```text
-https://deine-domain.de/r/werkstatt
-https://deine-domain.de/r/dachterrasse
-https://deine-domain.de/r/sommerkueche
-https://deine-domain.de/r/sauna
-https://deine-domain.de/r/ruheraum
-```
-
-Für lokale Tests entsprechend:
-
-```text
-http://localhost:8000/r/werkstatt
-http://localhost:8000/r/dachterrasse
-http://localhost:8000/r/sommerkueche
-http://localhost:8000/r/sauna
-http://localhost:8000/r/ruheraum
-```
-
-## Wichtige Routen
-
-| Route                 | Beschreibung                               |
-| --------------------- | ------------------------------------------ |
-| `/`                   | Raumübersicht                              |
-| `/r/{raum}`           | Formular für einen bestimmten Raum         |
-| `/letzte-buchungen`   | öffentliche Übersicht der letzten Einträge |
-| `/anmerkungen`        | allgemeine Anmerkungen                     |
-| `/admin`              | Admin-Übersicht                            |
-| `/admin/session/{id}` | Detailansicht eines Eintrags               |
-| `/datenschutz`        | Datenschutzseite                           |
-| `/uploads/{filename}` | ausgelieferte Upload-Dateien               |
-
-## Admin-Bereich
-
-Der Admin-Bereich ist mit HTTP Basic Auth geschützt. Setze dafür vor dem Start:
-
-```bash
-export ADMIN_USERNAME=admin
-export ADMIN_PASSWORD=ein-sicheres-passwort
-```
-
-Bei Docker Compose können diese Werte in einer lokalen `.env` stehen:
+Beispiel für eine LAN-Installation in `.env` (Adresse anpassen):
 
 ```dotenv
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=ein-sicheres-passwort
-HOST_PORT=9000
+ADMIN_PASSWORD=hier-ein-langes-geheimes-passwort
+ALLOWED_HOSTS=192.168.2.127,localhost,127.0.0.1
 PUBLIC_BASE_URL=http://192.168.2.127:9000
-MAX_UPLOAD_IMAGES=5
-MAX_UPLOAD_SIZE_MB=5
-MAX_NAME_LENGTH=100
-MAX_HOUSE_LENGTH=10
-MAX_COMMENT_LENGTH=2000
-MAX_GENERAL_NOTE_LENGTH=4000
+HOST_PORT=9000
 ```
 
-Funktional umfasst der Admin-Bereich:
+Für Raumzugänge HTTPS verwenden. Nur für die lokale Entwicklung sind HTTP-Adressen
+mit `localhost`, `127.0.0.1` oder `::1` als Basis zugelassen. Das Lesecookie ist unter HTTPS `Secure`; unter lokalem HTTP wird es ohne dieses Flag gesetzt. Es bleibt immer HttpOnly und hostgebunden.
+`PUBLIC_BASE_URL` akzeptiert keine fremden Schemen, Zugangsdaten, Querystrings oder
+Fragmente und wird beim Start geprüft. Ohne explizite Basis wird kein QR-Code erzeugt;
+es gibt keinen Fallback auf den Request-Host. Ohne Master-Schlüssel bleiben die öffentlichen
+Formulare und die Admin-Verwaltung verfügbar; der QR-Zugang und die PDF-Erzeugung sind gesperrt.
 
-* Übersicht der letzten Einträge
-* Filterung nach Raum
-* Detailansicht einzelner Einträge
-* Soft-Delete von Einträgen
+## Proxy und Ressourcenbegrenzung
 
-Beim Soft-Delete wird ein Eintrag nicht physisch gelöscht, sondern mit `deleted_at` markiert und anschließend in den Listen ausgeblendet.
+Uvicorn **immer mit `--no-proxy-headers`** starten (in Docker bereits eingestellt).
+Sonst könnte Uvicorn Header vor der Anwendung auswerten und deren Vertrauensprüfung
+umgehen. Die App wertet `X-Forwarded-For` und `X-Forwarded-Proto` ausschließlich aus,
+wenn die tatsächliche Gegenstelle in `TRUSTED_PROXIES` liegt. Bei mehreren Proxies
+wird die IP-Kette von rechts bis zum ersten nicht vertrauten Hop ausgewertet.
+`Forwarded` und `X-Forwarded-Host` werden nicht für Identität oder QR-URLs benutzt.
+Keine pauschalen Netze wie `0.0.0.0/0` vertrauen. Vorgeschaltete Proxies müssen eingehende
+Forwarding-Header überschreiben. Bei Docker die tatsächlich am Container sichtbare
+Proxy-Adresse konfigurieren, nicht pauschal das ganze Docker-Netz.
 
-## Sicherheitshinweise
+Die App liest mutierende Requests vollständig und mit Byte-/Zeitlimit ein, bevor
+Multipart verarbeitet wird, auch ohne `Content-Length`. Überschreitungen ergeben 413,
+Zeitüberschreitungen 408. Ratenüberschreitungen ergeben 429 mit `Retry-After`.
+SQLite serialisiert die Prüfung/Zählererhöhung; ein persistenter geheimer Schlüssel
+pseudonymisiert IPs. Neustarts und mehrere Worker mit derselben DB setzen die Limits
+nicht zurück. Bei DB-Ausfall wird keine öffentliche Übermittlung angenommen (503).
+Ungültige Formulare zählen ebenfalls. Ein fester Fensterwechsel kann kurzfristig
+zwei volle Kontingente zulassen; ein gemeinsamer NAT-Zugang teilt sich das Clientlimit.
 
-Wichtig für den Betrieb außerhalb des lokalen Netzwerks:
+Die App begrenzt keine vorgelagerten Verbindungen, Headergrößen oder Proxy-Puffer.
+Request-Daten werden begrenzt im RAM gepuffert und Bilder im Worker decodiert. Daher
+auch am Proxy Verbindungen/Requests begrenzen und Workerzahl, RAM und Uvicorns
+`--limit-concurrency` abstimmen. Eine öffentliche Installation braucht diese Grenzen
+zusätzlich zu den Anwendungslimits. Bei getrennten Instanzen ist eine gemeinsame
+lokale SQLite-Datei erforderlich; SQLite-WAL nicht über Netzwerkdateisysteme betreiben.
 
-* Hochgeladene Bilder bleiben bewusst öffentlich innerhalb der App und per direktem Bildlink erreichbar.
-* Uploads werden serverseitig als echte Bilder geprüft. Erlaubt sind JPEG, PNG und WebP.
-* Für den Produktivbetrieb sollte die Anwendung hinter HTTPS laufen.
-* Admin-Zugangsdaten sollten lang, eindeutig und nicht im Repository gespeichert sein.
-* Regelmäßige Backups von `data/app.db` und `data/uploads/` sind empfehlenswert.
+Nginx-Beispiel innerhalb eines bereits eingerichteten HTTPS-Servers (im `http`-Block
+`limit_conn_zone $binary_remote_addr zone=raumlog_connections:10m;` definieren):
 
-Zusätzlicher Schutz über Reverse Proxy, VPN oder Authelia kann trotzdem sinnvoll sein.
-
-## Uploads und Bildauslieferung
-
-Beim Speichern werden Bilder vollständig validiert, bevor ein Nutzungseintrag angelegt wird:
-
-* maximal `MAX_UPLOAD_IMAGES` Bilder pro Eintrag
-* maximal `MAX_UPLOAD_SIZE_MB` MB pro Bild
-* Prüfung mit Pillow, ob die Datei tatsächlich als Bild geöffnet und verifiziert werden kann
-* nur JPEG, PNG und WebP
-
-Die internen Dateinamen werden zufällig per UUID erzeugt und nicht aus Nutzerinput übernommen. Die öffentliche Route `/uploads/{filename}` liefert nur Dateien aus, die als Bildreferenz in der Datenbank gespeichert sind und dem erwarteten UUID-Dateinamenmuster entsprechen. Damit bleiben Bilder für Nutzerinnen und Nutzer über bekannte Links erreichbar, ohne freien Zugriff auf beliebige Dateien im Upload-Verzeichnis zu erlauben.
-
-## Backup
-
-Für ein einfaches Backup sollten mindestens diese Daten gesichert werden:
-
-```text
-data/app.db
-data/uploads/
+```nginx
+server_name raumlog.example.org;
+client_max_body_size 26m;
+client_body_timeout 30s;
+client_header_timeout 10s;
+limit_conn raumlog_connections 10;
+location / {
+    proxy_pass http://127.0.0.1:9000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_request_buffering on;
+    proxy_cache off;
+}
 ```
 
-Beispiel:
+Für dieses Beispiel `ALLOWED_HOSTS=raumlog.example.org`, `PUBLIC_BASE_URL=https://raumlog.example.org`,
+`HOST_BIND=127.0.0.1` und `TRUSTED_PROXIES` passend zur wirklichen Proxy-Gegenstelle setzen.
+Proxy-Timeouts messen teils Pausen, während das Anwendungslimit die gesamte Übertragung
+begrenzt. HTTPS-Zertifikate und weitere Serverblöcke sind in diesem Ausschnitt nicht enthalten.
+
+## Datenbank und vorhandene Uploads
+
+Beim Start richtet `lifespan` Datenverzeichnisse und DB ein. Jede Verbindung hat
+explizites Close, Commit/Rollback und Busy-Timeout; WAL wird zentral initialisiert.
+`schema_migrations` protokolliert additive, idempotente Schemaergänzungen, `app_state`
+hält Initialisierungsmarker und den persistenten Rate-Limit-Schlüssel. Alle Schema-
+und Seed-Änderungen erfolgen in einer Transaktion. Es gibt keine DROP-, DELETE- oder
+Rebuild-Migrationen für Nutzungsdaten.
+
+`ROOM_DEFINITIONS` sind **Startwerte für eine neue, leere Raumkonfiguration**.
+Vorhandene Räume bleiben einschließlich Namen, Zusatzfeldern, Sortierung und
+Deaktivierung unverändert. Eine bereits vorhandene Teilkonfiguration wird nicht
+mit Standardräumen aufgefüllt. Nach erstmaligem Seeding werden auch bewusst entfernte
+Räume nicht neu angelegt. Künftige Raumänderungen explizit in der DB vornehmen;
+Änderungen in `constants.py` verändern bestehende Installationen nicht mehr.
+
+Neue Bilder: JPEG/PNG/WebP, Strukturprüfung plus vollständige Decodierung,
+Decompression-Bomb-/Dimensionsgrenzen, keine Animationen, Neucodierung mit korrigierter
+EXIF-Orientierung und ohne eingebettete Metadaten. Zufällige Dateinamen, atomare
+Publikation ohne Überschreiben und DB-Transaktion verhindern partielle Einträge bei
+behandelbaren Datei-/DB-Fehlern. Auch unerwartete Exceptions lösen Dateiaufräumen aus.
+Vorhandene Uploads werden nicht neu codiert und nicht gelöscht. Bei Prozessabsturz
+zwischen Dateipublikation und DB-Commit können unreferenzierte Dateien verbleiben;
+Dateisystem und SQLite sind keine gemeinsame atomare Transaktion.
+
+Soft-Delete erhält Daten und Dateien intern, sperrt jedoch Listen, Details und Bilder.
+Es gibt noch keine automatische endgültige Löschung. Die Strategie zur späteren
+Bereinigung einschließlich Dry-Run, Schonfrist und Backup-Behandlung steht in
+[SECURITY_REVIEW.md](SECURITY_REVIEW.md).
+
+## Globaler QR-Zugang und CSRF
+
+Ein Scan eines beliebigen gültigen Raumcodes erteilt globale Leserechte: alle
+Raumlogbücher, Bilder, QR-PDFs und Zugangslinks. Der QR-Link öffnet weiterhin das
+konkrete Raumformular. Rechts neben dem Raumnamen stehen kompakte Icons für QR-PDF
+und Zugangslink-Kopieren. Der Link zum Raumlogbuch steht im Kopf der Buchungsvorschau;
+die Raumkarten zeigen
+die kleinen QR-Icons für alle Räume.
+Allgemeine Anmerkungen und administrative Änderungen bleiben Admin-Sache.
+
+Die zentrale Dependency `require_reader` prüft die serverseitige Sitzung. Die Middleware
+verlängert erst vor einer erfolgreichen geschützten Antwort (`2xx`) sowohl den
+SQLite-Ablauf als auch `Max-Age` und `Expires` des Cookies. Vorgabe: 365 Tage ab jetzt,
+ohne 90-Tage-Schwelle. Öffentliche Seiten/Formulare, Fehler und Admin-Authentifizierung
+allein verlängern keine Reader-Sitzung. Der separate erfolgreiche Abruf der geschützten
+Buchungsvorschau zählt als Reader-Zugriff und verlängert die Sitzung. Bei zwischenzeitlichem Ablauf/Widerruf werden
+weder private Antwortdaten noch ein verlängertes Cookie ausgegeben.
+
+Ein gültiger erneuter QR-Scan verlängert dieselbe Sitzung. Abgelaufene oder widerrufene
+Kennungen werden nicht reaktiviert; ein bewusster neuer Scan eines aktuellen gültigen
+Codes erstellt eine neue Kennung. Cookies sind HttpOnly, SameSite=Lax und unter HTTPS
+Secure, ohne Domain-Attribut. Sie bleiben über Browserneustarts erhalten.
+
+Da jeder Reader alle Raumcodes kennt, bietet die Admin-Seite ausschließlich einen
+**globalen Widerruf** an: alle Raumtoken-Versionen und die globale Berechtigungsversion
+werden atomar erhöht. Sämtliche alten Codes und Reader-Sitzungen sind anschließend
+ungültig. Eine vermeintlich unabhängige Sperrung nur eines Raumcodes gibt es nicht mehr.
+
+PDF-Layout und Master-Schlüssel bleiben erhalten. Migration 4 ergänzt eine globale
+Sitzungsversion. Alte 7-Tage-Sitzungen werden in der Entwicklung bewusst nicht
+hochgestuft; einmal neu scannen. Bestehende gedruckte Raumcodes bleiben beim Upgrade
+gültig, sofern keine globale Rotation ausgelöst wird. Alte Raumfreigabe-Tabellen bleiben
+bei vorhandenen Datenbanken ungenutzt erhalten; neue Datenbanken benötigen sie nicht.
+
+Token-Tausch und öffentliche Formular-POSTs verlangen weiterhin eine passende Origin
+oder bestätigte Same-Origin-Fetch-Metadaten; Admin-Änderungen das signierte CSRF-Token.
+Der geheime Zugangslink wird nur nach einem bewussten POST ausgegeben, nicht vorab
+ins HTML eingebettet. Reader-Endpunkte senden bei fehlendem Zugang keinen Basic-Dialog.
+Admin-Ansichten verwenden für Bilder/PDFs eigene `/admin/...`-Adressen mit derselben
+bestehenden Admin-Authentifizierung, ohne eine zusätzliche Reader-Sitzung vorauszusetzen.
+
+Details, Schlüsselsicherung, Widerrufsfolgen und aktuelle Testergebnisse:
+[QR_ACCESS.md](QR_ACCESS.md).
+
+## E-Mail
+
+Optional: `SMTP_HOST`, `SMTP_FROM`, `SMTP_TO`. Weitere Einstellungen:
+`SMTP_PORT=587`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_STARTTLS=true`, `SMTP_SSL=false`.
+Für direktes TLS typischerweise Port 465, `SMTP_SSL=true`, `SMTP_STARTTLS=false`.
+TLS-Zertifikate werden geprüft. Die Nachricht benennt den tatsächlich gewählten Raum.
+Es werden keine Bilder angehängt; Name, Haus und Bemerkung werden an den konfigurierten
+Empfänger gesendet. Adressen und Serverantworten werden bei Fehlern nicht protokolliert.
+
+Versand erfolgt nach der HTTP-Antwort als FastAPI-BackgroundTask im Worker-Thread.
+SMTP-Fehler berühren gespeicherte Einträge nicht. Es gibt keine persistente Queue,
+keine Zustellgarantie und keinen automatischen Wiederholungsversuch; Prozessabstürze
+oder Neustarts können Nachrichten verlieren. Für garantierte Zustellung wäre eine
+separate persistente Outbox notwendig.
+
+## Browser und Datenschutz
+
+Name, Haus und Nummer werden standardmäßig bereits beim Ausfüllen lokal gespeichert
+und zwischen Raumformularen übernommen. Die Speicheroption lässt sich ausschalten;
+`usage_remember=no` hält diese Entscheidung über Neustarts hinweg fest.
+„Gespeicherte Eingaben entfernen“ löscht die drei Werte und schaltet das Merken aus.
+Der optionale Name unter Hilfe & Infos wird vorgefüllt; dortiges Entfernen für eine
+anonyme Nachricht oder Ändern beeinflusst das gespeicherte Raumprofil nicht.
+Validierungsfehler zeigen die tatsächlich übermittelten Werte; Bemerkungen, Nachrichten,
+Zustand und Bilder werden nicht lokal gespeichert. Bei blockiertem localStorage bleiben Formulare, Theme und Viewer
+benutzbar. Theme-Einstellung ist unabhängig von Personendaten. Object-URLs für Vorschauen
+werden bei Laden, Fehlern, Ersetzen, Entfernen und Verlassen der Seite freigegeben.
+Der Viewer unterstützt Tab/Shift+Tab, Pfeiltasten, Escape und Fokuswiederherstellung;
+der Seiteninhalt ist währenddessen inert. Asset-Hashes und Revalidierung der importierten
+Stylesheets verhindern veraltete Assets. Das bestehende Layout bleibt erhalten.
+
+Die Datenschutzhinweise beschreiben die technische Umsetzung. Der Betreiber muss
+Verantwortlichen, Kontakt, Rechtsgrundlage und konkrete Aufbewahrungsfristen für
+App, E-Mail, Backups und gegebenenfalls Serverprotokolle ergänzen.
+
+## Backup und Update
+
+Vor dem Update konsistentes DB-Backup mit SQLite-Backup-API oder im gestoppten Dienst
+erstellen und Uploads sichern. Bei WAL-Betrieb ist das Kopieren nur von `app.db` im
+laufenden Betrieb kein verlässliches Backup. Backups gegen unberechtigten Zugriff schützen.
+Die ursprüngliche DB nicht durch eine leere Datei ersetzen.
+
+1. Datenbank und Uploads sichern.
+2. Zugangsdaten, `ALLOWED_HOSTS`, `PUBLIC_BASE_URL`, Proxy-Vertrauen und Limits prüfen.
+3. Abhängigkeiten neu installieren bzw. Container neu bauen.
+4. Anwendung starten; additive Migration läuft automatisch.
+5. Anonymes Melden und angemeldete Verwaltung/Bildauslieferung prüfen.
+6. Alte Proxy-Caches und gegebenenfalls Browserdaten bereinigen.
+
+Wichtige Verhaltensänderungen: bisher öffentliche Datenansichten verlangen Reader-
+oder Admin-Zugang; allgemeine Anmerkungen und Verwaltung bleiben Admins vorbehalten.
+Gelöschte Details liefern 404; direkte Admin-POSTs brauchen ein CSRF-Token; Bilder werden
+neu codiert und Animationen abgelehnt; strengere Hosts und kleinere Compose-Uploaddefaults;
+kein automatisches Überschreiben der Raumkonfiguration und kein Reload im Container.
+Eine vorhandene `.env` überschreibt Compose-Defaults weiterhin.
+
+## Tests und CI
 
 ```bash
-tar -czf zelter5-raumlog-backup.tar.gz data/
+pip install -r requirements-dev.txt
+python -m pytest -q --ignore=tests/test_browser.py --ignore=tests/test_capability_browser.py
+ruff check app tests
+ruff format --check app tests
 ```
 
-## Entwicklungshinweise
-
-Die Datenbank wird beim Start automatisch initialisiert. Fehlende Spalten werden einfach ergänzt. Für dieses kleine Projekt ist das praktisch; bei größeren Änderungen wäre ein echtes Migrationswerkzeug wie Alembic sauberer.
-
-Die Räume werden beim Start aus `ROOM_DEFINITIONS` in `app/constants.py` in die Datenbank geschrieben oder aktualisiert. Bestehende Nutzungseinträge bleiben dabei erhalten.
-
-## Typische Probleme
-
-### Seite startet, aber Uploads fehlen nach Neustart
-
-Prüfe, ob `data/` im Docker-Setup als Volume eingebunden ist.
-
-### E-Mails werden nicht verschickt
-
-Prüfe:
-
-* Sind `SMTP_HOST`, `SMTP_FROM` und `SMTP_TO` gesetzt?
-* Stimmen Port und TLS/SSL-Einstellungen?
-* Erlaubt der Mailanbieter SMTP-Login mit Passwort oder ist ein App-Passwort nötig?
-* Gibt es Fehlermeldungen im Container-Log?
+Für echte Browsertests zusätzlich:
 
 ```bash
-docker compose logs -f
+pip install -r requirements-browser.txt
+# OpenSSL muss für die lokalen HTTPS-Browsertests verfügbar sein.
+playwright install chromium
+python -m pytest -q
 ```
 
-### Datenbank wird nicht gefunden
+System-Chromium wird verwendet, wenn vorhanden, sonst Playwright-Chromium. Tests
+verwenden ausschließlich temporäre DBs/Uploads, auch beim Import. Sie versenden keine
+realen E-Mails. CI prüft Python 3.11/3.13/3.14 sowie Chromium separat.
+Zusätzliche Docker-Regressionen (Docker-Daemon erforderlich, separate temporäre Daten):
 
-Prüfe den Wert von `DATA_DIR` und ob der Prozess Schreibrechte auf dieses Verzeichnis hat.
+```bash
+docker compose build werkstatt-log
+RUN_DOCKER_TESTS=1 python -m pytest -q tests/test_docker.py
+```
 
-## Offene Punkte für Produktivbetrieb
+Die Tests verwenden das Image `werkstatt-log-mvp-werkstatt-log`; bei abweichendem
+Image-Namen `RAUMLOG_TEST_IMAGE` setzen. Ein eigener CI-Job baut und prüft das Image.
 
-* Admin-Authentifizierung ergänzen
-* Upload-Prüfung robuster machen
-* maximale Upload-Größe begrenzen
-* Datenschutztext final prüfen
-* Backup-Konzept festlegen
-* Domain und Reverse Proxy konfigurieren
-* QR-Codes final mit Produktivdomain erzeugen
+Die aktuelle lokale Verifikation und verbleibende Einschränkungen stehen im
+[Abschlussbericht](SECURITY_REVIEW.md).
+
+Technische Referenzen: [FastAPI Lifespan](https://fastapi.tiangolo.com/advanced/events/),
+[FastAPI BackgroundTasks](https://fastapi.tiangolo.com/tutorial/background-tasks/),
+[Pillow Bild-API](https://pillow.readthedocs.io/en/stable/reference/Image.html),
+[Nginx Request-Grenzen](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size).

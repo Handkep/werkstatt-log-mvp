@@ -137,11 +137,13 @@ ROOM_DEFINITIONS = [
 NAV_GROUPS = {
     "public": [
         {"id": "rooms", "label": "Räume", "href": "/"},
-        {"id": "recent", "label": "Letzte Buchungen", "href": "/letzte-buchungen"},
-        {"id": "notes", "label": "Anmerkungen", "href": "/anmerkungen"},
+        {"id": "logbook", "label": "Logbuch", "href": "/logbuch"},
+        {"id": "help", "label": "Hilfe & Infos", "href": "/hilfe"},
     ],
     "admin": [
-        {"id": "admin", "label": "Admin", "href": "/admin"},
+        {"id": "admin", "label": "Einträge verwalten", "href": "/admin"},
+        {"id": "admin_messages", "label": "Nachrichten", "href": "/admin/nachrichten"},
+        {"id": "room_access", "label": "QR-Zugänge", "href": "/admin/raumzugaenge"},
     ],
     "meta": [
         {"id": "privacy", "label": "Datenschutz", "href": "/datenschutz"},
