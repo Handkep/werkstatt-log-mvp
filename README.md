@@ -59,8 +59,8 @@ Nach Änderungen den laufenden Dienst mit dem neu gebauten Image neu erstellen.
 Die Weboberfläche kombiniert **Noto Serif Display** für Seitentitel und Raumnamen
 auf Karten mit **Google Sans Flex** für Fließtext, Daten und Bedienung. App-Name
 und Verwaltungskopf verwenden ebenfalls Noto Serif Display. Beide Familien werden lokal
-ausgeliefert; es entstehen keine Font-Anfragen an Google. QR-PDFs betten weiterhin
-unverändert Google Sans Flex ein. Quellen, feste Asset-Versionen, Prüfsummen und
+ausgeliefert; es entstehen keine Font-Anfragen an Google. QR-PDFs betten Noto Serif Display für Marke und Raumname sowie
+Google Sans Flex für Anleitung und Hinweise ein. Quellen, feste Asset-Versionen, Prüfsummen und
 Lizenzen stehen unter [app/static/fonts](app/static/fonts/README.md).
 
 ### Typografie
@@ -402,7 +402,7 @@ Da jeder Reader alle Raumcodes kennt, bietet die Admin-Seite ausschließlich ein
 werden atomar erhöht. Sämtliche alten Codes und Reader-Sitzungen sind anschließend
 ungültig. Eine vermeintlich unabhängige Sperrung nur eines Raumcodes gibt es nicht mehr.
 
-PDF-Layout und Master-Schlüssel bleiben erhalten. Migration 4 ergänzt eine globale
+Codierter QR-Zugang und Master-Schlüssel bleiben erhalten. Migration 4 ergänzt eine globale
 Sitzungsversion. Alte 7-Tage-Sitzungen werden in der Entwicklung bewusst nicht
 hochgestuft; einmal neu scannen. Bestehende gedruckte Raumcodes bleiben beim Upgrade
 gültig, sofern keine globale Rotation ausgelöst wird. Alte Raumfreigabe-Tabellen bleiben
@@ -533,3 +533,32 @@ oder Sessel links vom Namen. Die Zuordnung liegt zentral in `ROOM_ICONS`; unbeka
 Raum-Slugs erhalten die offene Tür. Alle Symbole sind dekorative, lokal gelieferte
 Lucide-SVGs (22 px, Strichstärke 2), ohne eigene Tabstopps. Texte und QR-Download
 bleiben eigenständig bedienbar; die Verwaltungsnavigation bleibt unverändert.
+
+
+### Gedruckte QR-Aushänge
+
+Alle bisherigen QR-PDF-Downloads liefern einen einseitigen A4-Aushang mit mindestens
+20 mm Außenrand. Marke (Noto Serif Display Bold, 16 pt), Raumname (Medium, bis 60 pt)
+und „Nutzung dokumentieren“ stehen über einem 110 mm großen Vektor-QR-Code.
+Lange Raumnamen werden vermessen, umgebrochen und bei Bedarf verkleinert. Der QR-Code
+steht einschließlich Ruhezone 90 bis 200 mm unter der Blattoberkante. Darunter
+stehen ab 218 mm drei gleich breite Spalten: Scannen, Eintragen und Speichern.
+Überschriften verwenden 15 pt, Erklärungen 12 pt mit 16 pt Zeilenhöhe; zwischen den
+Spalten stehen 8 mm Abstand. Überschriften und Erklärungen sind innerhalb ihrer
+gleich breiten Spalten zentriert; der gesamte Dreierblock sitzt mittig unter dem
+QR-Code. Nummerierung, Trennlinie und Fußhinweis entfallen.
+
+Alle Datenmodule sowie kleinere Ausrichtungs- und weitere Funktionsmuster bleiben
+eckig, ohne zusätzliche Zwischenräume. Ausschließlich die drei großen Fixpunkte
+werden als zusammenhängende gerundete Formen gezeichnet: Außenquadrat, weiße
+Innenfläche und schwarzer Kern haben Seitenlängen von 7, 5 und 3 Modulen mit
+Eckradien von 1, 0,75 und 0,5 Modulen. Die äußeren weißen Trennbereiche bleiben
+frei. Schwarz auf Weiß, vier Module Ruhezone und Fehlerkorrektur M bleiben erhalten.
+Alte Ausdrucke werden nicht ungültig; keine Zugangsschlüssel werden erneuert.
+
+Die Testreihe `tests/test_pdf.py` prüft alle Räume, lange Titel, Sonderzeichen und
+verschiedene Linklängen: eine A4-Seite, eingebettete Schriften, Vektorinhalt,
+Metadaten ohne Zugangsschlüssel sowie QR-Decodierung nach dem Rendern bei 150 und
+300 dpi. Dafür `requirements-dev.txt` installieren; zusätzlich wird Poppler
+(`pdftoppm`, beispielsweise Paket `poppler-utils`) benötigt. Ein Smartphone-Scan
+und ein Papierausdruck bleiben zusätzliche praktische Prüfungen.

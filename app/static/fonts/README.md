@@ -40,8 +40,9 @@ Die Schrift steht unter der SIL Open Font License 1.1, siehe `OFL-GoogleSansFlex
 
 Noto Serif Display setzt Seitentitel und Raumnamen auf Karten in Medium (500)
 sowie den gemeinsamen App-/Verwaltungsschriftzug in Bold (700).
-Navigation, Formulare, Fließtexte, kleinere Überschriften und QR-PDFs verwenden
-weiterhin Google Sans Flex. Im Web werden die aufrechten Schnitte Medium (500) und Bold (700)
+Navigation, Formulare, Fließtexte und kleinere Überschriften verwenden
+weiterhin Google Sans Flex. QR-PDFs kombinieren Noto für Marke und Raumname mit
+Google Sans Flex für Anleitung und Hinweise. Im Web werden die aufrechten Schnitte Medium (500) und Bold (700)
 in normaler Breite (100 %) angefordert, ohne synthetische Fettung oder Kursive.
 
 Die WOFF2-Dateien sind unveränderte Google-Fonts-Webdateien, Release **v29**,
@@ -82,3 +83,19 @@ Quelle: https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wght@700&dis
 - `noto-serif-display-700-latin.woff2` (14408 Bytes)
   - Quelle: https://fonts.gstatic.com/s/notoserifdisplay/v29/buERppa9f8_vkXaZLAgP0G5Wi6QmA1QaeYah2sovLCDq_ZgLyt3idQfktOG-PVq65egNYjQ.woff2
   - SHA-256: `1d6f07e4d36c336d8676875a1afc2a68f175ee5ce31c1aa3ed5d4e3a36f992ca`
+
+### PDF: statische TTF-Schnitte
+
+`NotoSerifDisplay-Medium.ttf` (500) und `NotoSerifDisplay-Bold.ttf` (700) sind
+unveränderte statische TrueType-Dateien aus Google Fonts, Release v29,
+abgerufen am 02.11.2026. Beide sind aufrecht, normal breit und enthalten je
+2.840 Unicode-Zuordnungen. Sie werden von ReportLab eingebettet; zur Laufzeit
+sind weder Downloads noch Font-Konvertierungen erforderlich. Die oben genannte
+SIL-OFL-Lizenz gilt ebenfalls für diese Dateien.
+
+- `NotoSerifDisplay-Medium.ttf` (398416 Bytes)
+  - Quelle: https://fonts.gstatic.com/s/notoserifdisplay/v29/buERppa9f8_vkXaZLAgP0G5Wi6QmA1QaeYah2sovLCDq_ZgLyt3idQfktOG-PVpv4tgK.ttf
+  - SHA-256: `e8837ed1854971c52136aaa97ef213c3c2139b236f93d4e2d7fd0b1b03d47c11`
+- `NotoSerifDisplay-Bold.ttf` (397628 Bytes)
+  - Quelle: https://fonts.gstatic.com/s/notoserifdisplay/v29/buERppa9f8_vkXaZLAgP0G5Wi6QmA1QaeYah2sovLCDq_ZgLyt3idQfktOG-PVq65dgK.ttf
+  - SHA-256: `cd898729b4abd86ba20c468564a6d5f59781c7a1db5b38af4a428430fa4f76c1`

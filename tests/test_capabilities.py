@@ -125,13 +125,13 @@ def test_admin_can_print_all_pdfs_without_reader_session(reader_client):
 
 def test_tokens_stay_room_specific_and_reproducible(reader_client, monkeypatch):
     urls = []
-    original = pdf.make_qr_image
+    original = pdf.qr_matrix
 
     def capture(value):
         urls.append(value)
         return original(value)
 
-    monkeypatch.setattr(pdf, "make_qr_image", capture)
+    monkeypatch.setattr(pdf, "qr_matrix", capture)
     grant(reader_client, "werkstatt")
     for _ in range(2):
         assert reader_client.get("/r/sauna/qr.pdf").status_code == 200
