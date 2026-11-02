@@ -90,5 +90,7 @@ def paths(tmp_path, monkeypatch):
 
 @pytest.fixture
 def client(paths):
-    with TestClient(app, headers={"Origin": "http://testserver"}) as client:
+    with TestClient(
+        app, base_url="https://testserver", headers={"Origin": "https://testserver"}
+    ) as client:
         yield client

@@ -1,6 +1,8 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+# All tests use synchronous TestClient/Playwright; the unused AnyIO plugin still
+# imports a deprecated pytest alias and fails under our warning-as-error CI.
+addopts = "-ra -p no:anyio"
 
 [tool.ruff]
 target-version = "py311"

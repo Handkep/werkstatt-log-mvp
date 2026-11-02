@@ -1,5 +1,8 @@
 FROM python:3.13-slim
 
+LABEL org.opencontainers.image.source="https://github.com/Handkep/werkstatt-log-mvp"
+LABEL org.opencontainers.image.description="Zelter5 Raumlog – gemeinsame Räume dokumentieren"
+
 WORKDIR /app
 
 COPY requirements.txt .

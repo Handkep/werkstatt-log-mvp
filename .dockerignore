@@ -1,9 +1,20 @@
-.git
-.venv
-.env
-data
-__pycache__
-.pytest_cache
-.ruff_cache
-*.pyc
-*.tar.gz
+# Allow only runtime sources and the dependency manifest into the build context.
+**
+!Dockerfile
+!.dockerignore
+!requirements.txt
+!app/
+!app/**
+
+# Exclude generated files even if they appear below app/.
+**/__pycache__
+**/*.pyc
+**/.env
+**/.env.*
+**/*.db
+**/*.db-*
+**/*.sqlite*
+**/*.tar*
+**/*.zip
+**/uploads
+**/backups

@@ -28,6 +28,7 @@ from app.config import (
 )
 from app.db import db_connect
 from app.public_errors import public_failure
+from app.utils import configured_public_scheme
 
 PUBLIC_SUBMISSION = re.compile(r"^/r/[^/]+/(submit|access)/?$")
 
@@ -98,6 +99,10 @@ class RequestProtectionMiddleware:
         scope.setdefault("state", {})["csp_nonce"] = nonce
         headers = Headers(scope=scope)
         client = self.apply_proxy_headers(scope, headers)
+        # Die explizite Außenadresse ist für ihren eigenen Host maßgeblich.
+        # Kein Vertrauen in beliebige Forwarding-Header und kein HTTPS-Downgrade.
+        if configured_public_scheme(headers.get("host", "")) == "https":
+            scope["scheme"] = "https"
 
         async def deliver(message):
             if message["type"] == "http.response.start":

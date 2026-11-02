@@ -54,9 +54,19 @@ in localStorage oder sessionStorage.
 
 Die vorhandene lokale Basis bleibt auf Wunsch `http://localhost:9000`.
 Für andere Geräte muss `PUBLIC_BASE_URL` eine erreichbare HTTPS-Adresse enthalten.
-HTTP ist ausschließlich für Loopback-Entwicklung zugelassen. `ALLOWED_HOSTS`,
-`TRUSTED_PROXIES` und Uvicorns `--no-proxy-headers` weiterhin passend konfigurieren.
-Die QR-Basis wird ausdrücklich konfiguriert und niemals aus dem Host-Header abgeleitet.
+HTTP ist ausschließlich für Loopback-Entwicklung zugelassen. `ALLOWED_HOSTS` muss
+den öffentlichen Host erlauben; Uvicorn bleibt mit `--no-proxy-headers` gestartet.
+Die feste HTTPS-Außenadresse bestimmt bei passendem Host und Port auch hinter
+einem HTTP-Backend die Herkunftsprüfung und sicheren Cookies. Eine Caddy-IP in
+`TRUSTED_PROXIES` ist dafür nicht erforderlich. Die QR-Basis wird weiterhin niemals
+aus einem Host- oder Forwarding-Header abgeleitet. Eine optionale Proxy-Freigabe
+kann echte Besucher-IP-Adressen für getrennte Ratenlimits liefern; ohne sie teilen
+Besucher hinter derselben Proxy-IP das Clientlimit.
+
+Während des QR-Austauschs merkt sich die Raumseite einen internen Navigationsklick.
+Erst nach Bestätigung des Cookies über `/rooms/latest-status` wird das Ziel geöffnet.
+Fehlgeschlagene Aktivierung oder ein Timeout nach 15 Sekunden werden sichtbar
+angezeigt und geben die Navigation wieder frei.
 
 ## Master-Schlüssel und reproduzierbare Raumtokens
 

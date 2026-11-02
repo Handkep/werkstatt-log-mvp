@@ -231,7 +231,7 @@ def _origin(value: str) -> tuple[str, str, int] | None:
         return (
             parsed.scheme,
             parsed.hostname.lower(),
-            parsed.port or (443 if parsed.scheme == "https" else 80),
+            parsed.port if parsed.port is not None else (443 if parsed.scheme == "https" else 80),
         )
     except ValueError:
         return None

@@ -145,7 +145,7 @@ def test_global_session_and_global_rotation_in_browser(reader_page, secure_url, 
     page.goto(secure_url + "/r/sauna")
     assert page.get_by_role("link", name="QR-PDF herunterladen", exact=True).count() == 0
     page.goto(old_url)
-    page.get_by_text("Dieser Raumzugang ist ungültig oder abgelaufen.", exact=False).wait_for()
+    page.get_by_text("Die Zugangsprüfung wurde abgelehnt.", exact=False).wait_for()
     assert "#" not in page.url
     page.goto(secure_url + "/r/werkstatt")
     assert page.get_by_role("link", name="QR-PDF herunterladen", exact=True).count() == 0

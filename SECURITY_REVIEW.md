@@ -295,3 +295,47 @@ sollte diesen Vertrag einhalten:
 - Die strenge Nonce-CSP gilt für die App-Seiten. FastAPIs automatisch generierte Entwickler-UIs haben eine gesonderte, auf ihre Bibliotheks-CDNs begrenzte Richtlinie, um ihre bestehende Funktion zu erhalten.
 - Die GitHub-Actions-Matrix für Python 3.11/3.13/3.14 ist eingerichtet, wurde hier aber nicht auf GitHub ausgeführt. Lokal geprüft wurde Python 3.14.8 mit System-Chromium. Docker-Image-Build und Containerbetrieb wurden im Nachtrag oben zusätzlich geprüft; produktiver HTTPS-Proxy und echter SMTP-Versand bleiben ungeprüft.
 - Betreiberangaben, Kontakt, Rechtsgrundlage und verbindliche Aufbewahrungsfristen fehlen weiterhin als fachliche Vorgaben. Die Datenschutzseite benennt diese Ergänzungen und beschreibt die tatsächliche technische Umsetzung.
+
+
+## Nachtrag: feste Außenadresse und QR-Aktivierung (02.11.2026)
+
+Die ausdrücklich konfigurierte HTTPS-`PUBLIC_BASE_URL` bestimmt bei exakt passendem
+Host und Port das öffentliche Protokoll. Dadurch funktionieren Herkunftsprüfung,
+sichere Reader-/Admin-/CSRF-Cookies und HSTS auch bei internem HTTP nach TLS-Terminierung,
+ohne eine manuell gepflegte Proxy-IP für die HTTPS-Erkennung vorauszusetzen.
+Unvertraute Forwarding-Header gewähren weder eine andere Außenadresse noch zusätzliche
+Leserechte. Andere Origins und abweichende Ports bleiben abgelehnt; Port 0 wird bei
+der Origin-Prüfung nicht als Standardport normalisiert. `ALLOWED_HOSTS`, Sitzungsschutz,
+CSRF und globale QR-Widerrufe bleiben erhalten. Proxy-Freigaben sind weiterhin optional
+für echte Besucher-IP-Adressen; ohne Freigabe gilt das Clientlimit pro Proxy-IP.
+
+Die Raumseite wartet bei internen Navigationsklicks auf den bestätigten Zugang,
+begrenzt die Aktivierung auf 15 Sekunden und unterscheidet abgelehnte Prüfung,
+fehlendes Cookie und Netzwerkfehler. Schlüssel bleiben außerhalb von Navigationslinks
+und Browser-Speicher. Geprüft wurden 366 Anwendungs-/Browserfälle sowie vier isolierte
+Docker-Integrationen. Darunter: HTTPS-Browser vor simuliertem HTTP-Backend ohne
+Proxy-Vertrauen, sofortige Logbuchnavigation, sichere Admin-Anmeldung und Logout,
+Host-/Port-Grenzen und manipulierte Forwarding-Header. Die öffentliche Serverinstallation
+wurde bei dieser lokalen Umsetzung nicht verändert.
+
+## Nachtrag: Container-Veröffentlichung über GHCR (02.11.2026)
+
+Der vorhandene Workflow prüft Backend und Browser sowie native AMD64-/ARM64-Container.
+Nur ein erfolgreicher Push auf `main` im Ursprungsrepository darf das Multiarch-Image
+veröffentlichen. Der Veröffentlichungsjob allein erhält `packages: write` und nutzt
+das kurzlebige `GITHUB_TOKEN`. Verwendete Actions sind auf überprüfte Commit-SHAs
+festgelegt. Nach dem Upload wird der veröffentlichte Digest auf AMD64 und unter
+ARM64/QEMU erneut geladen und mit isolierten Daten auf Anmeldung, QR-Lesezugang,
+PDF-Erzeugung, Uploadschutz und Persistenz geprüft. Erst danach wird `latest`
+aktualisiert; Serialisierung und eine erneute `main`-Prüfung verhindern Rücksprünge
+auf ältere Workflow-Stände. Ein Digest ist die Referenz für exakt gleiche Imagebytes;
+ein erneuter Build desselben Quellcommits kann andere Basisimagebytes enthalten.
+
+Der Build-Kontext erlaubt nur Dockerfile, Abhängigkeitsliste und Anwendungsquellen;
+zusätzlich sind generierte Dateien, Datenbanken, Umgebungsdateien und Archive auch
+unterhalb des App-Verzeichnisses ausgeschlossen. Lokale Exporte und UI-Prüfartefakte
+sind zusätzlich in Git ignoriert. Das Image bleibt ohne Root und enthält lokale
+Schriftdateien. Zugangsdaten und QR-Master-Schlüssel werden erst zur Laufzeit gesetzt.
+Die Compose-Datei und entfernte Installationen werden durch diese Änderung nicht
+umgestellt. Die erste öffentliche Paketfreigabe erfolgt separat in GitHub; bis dahin
+ist der anonyme Download nicht als erfolgreich bestätigt.

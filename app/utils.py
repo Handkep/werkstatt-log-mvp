@@ -40,3 +40,38 @@ def safe_download_slug(value: str) -> str:
         char for char in value if char.isascii() and (char.isalnum() or char in {"-", "_"})
     )
     return cleaned or "raum"
+
+
+def configured_public_scheme(host: str) -> str | None:
+    """Protokoll aus fester Außenadresse, nur bei exakt passendem Host und Port.
+
+    Fehlender Port entspricht dem Standardport des öffentlichen Protokolls,
+    nicht dem internen HTTP-Port nach TLS-Terminierung. Forwarding-Header sind
+    hierfür keine Quelle. Andere erlaubte Hosts behalten ihre Transportdaten.
+    """
+    base = configured_public_base_url()
+    if not base:
+        return None
+    try:
+        public = urlsplit(base)
+        incoming = urlsplit("//" + host)
+        if (
+            not incoming.hostname
+            or incoming.username is not None
+            or incoming.password is not None
+            or incoming.path
+            or incoming.query
+            or incoming.fragment
+            or any(char.isspace() or ord(char) < 32 or char == "\\" for char in host)
+        ):
+            return None
+        public_host = public.hostname.encode("idna").decode("ascii").lower()
+        incoming_host = incoming.hostname.encode("idna").decode("ascii").lower()
+        default = 443 if public.scheme == "https" else 80
+        incoming_port = incoming.port if incoming.port is not None else default
+        public_port = public.port if public.port is not None else default
+        if incoming_host != public_host or incoming_port != public_port:
+            return None
+        return public.scheme
+    except (ValueError, UnicodeError):
+        return None

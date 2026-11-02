@@ -1,4 +1,4 @@
-name: Regression tests
+name: Tests and container image
 on: [push, pull_request]
 permissions:
   contents: read
@@ -9,8 +9,8 @@ jobs:
       matrix:
         python: ['3.11', '3.13', '3.14']
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-python@v7.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python }}
           cache: pip
@@ -19,24 +19,33 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check app tests
       - run: ruff format --check app tests
-      - run: python -m pytest -q --ignore=tests/test_browser.py --ignore=tests/test_capability_browser.py
+      - run: python -m pytest -q -W error --ignore=tests/test_browser.py --ignore=tests/test_capability_browser.py --ignore=tests/test_reader_activation_browser.py --ignore=tests/test_public_origin_browser.py
   browser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-python@v7.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.13'
           cache: pip
       - run: pip install -r requirements-browser.txt
       - run: playwright install --with-deps chromium
-      - run: python -m pytest -q -W error tests/test_browser.py tests/test_capability_browser.py
+      - run: python -m pytest -q -W error tests/test_browser.py tests/test_capability_browser.py tests/test_reader_activation_browser.py tests/test_public_origin_browser.py
 
   docker:
-    runs-on: ubuntu-latest
+    name: Container (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/setup-python@v7.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.13'
           cache: pip
@@ -46,3 +55,92 @@ jobs:
         env:
           RUN_DOCKER_TESTS: '1'
           RAUMLOG_TEST_IMAGE: raumlog-test:ci
+
+  publish:
+    name: Publish GHCR image
+    needs: [test, browser, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Handkep/werkstatt-log-mvp'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    # Only one publisher may move latest. The HEAD check below also covers old reruns.
+    concurrency:
+      group: ghcr-main
+      cancel-in-progress: false
+    env:
+      IMAGE: ghcr.io/handkep/werkstatt-log-mvp
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish commit image
+        id: image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/handkep/werkstatt-log-mvp:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Handkep/werkstatt-log-mvp
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.description=Zelter5 Raumlog – gemeinsame Räume dokumentieren
+          annotations: |
+            index:org.opencontainers.image.description=Zelter5 Raumlog – gemeinsame Räume dokumentieren
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Pull and test published digest on both platforms
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            docker pull --platform "linux/$arch" "$IMAGE@$DIGEST"
+            RUN_DOCKER_TESTS=1 RAUMLOG_TEST_IMAGE="$IMAGE@$DIGEST" RAUMLOG_TEST_PLATFORM="linux/$arch" \
+              python -m pytest -q -W error tests/test_docker.py
+          done
+      - name: Update latest only for current main
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          main_sha=$(git ls-remote https://github.com/Handkep/werkstatt-log-mvp.git refs/heads/main | cut -f1)
+          if [ "$main_sha" = "$GITHUB_SHA" ]; then
+            docker buildx imagetools create --prefer-index=false --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
+            echo 'LATEST_UPDATED=true' >> "$GITHUB_ENV"
+          else
+            echo 'LATEST_UPDATED=false' >> "$GITHUB_ENV"
+            echo 'main has advanced; keeping its latest image unchanged.'
+          fi
+      - name: Summarize published image
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          {
+            echo '## Container image'
+            echo "- Image: \`$IMAGE:sha-$GITHUB_SHA\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Digest: \`$IMAGE@$DIGEST\`"
+            echo '- Platforms: linux/amd64, linux/arm64'
+            echo "- latest updated: $LATEST_UPDATED"
+            echo '- Package: https://github.com/Handkep/werkstatt-log-mvp/pkgs/container/werkstatt-log-mvp'
+            echo '- First publication: set package visibility to public, then verify an anonymous pull.'
+          } >> "$GITHUB_STEP_SUMMARY"

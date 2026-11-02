@@ -12,12 +12,13 @@ from contextlib import closing
 from http.cookiejar import CookieJar
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 from uuid import uuid4
 
 import pytest
 from PIL import Image
+from pypdf import PdfReader
 
 from app import db
 from tests.conftest import ADMIN, VALID
@@ -31,13 +32,16 @@ IMAGE = os.environ.get("RAUMLOG_TEST_IMAGE", "werkstatt-log-mvp-werkstatt-log")
 
 
 def docker(*args: str) -> str:
+    platform = os.environ.get("RAUMLOG_TEST_PLATFORM")
+    if args and args[0] == "run" and platform:
+        args = ("run", "--platform", platform, *args[1:])
     return subprocess.run(
         ["docker", *args],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=True,
-        timeout=45,
+        timeout=90,
     ).stdout.strip()
 
 
@@ -52,7 +56,7 @@ def docker_available():
 
 
 def wait_for_start(container: str, base_url: str) -> None:
-    deadline = time.monotonic() + 20
+    deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
         try:
             with urlopen(base_url, timeout=1) as response:
@@ -100,6 +104,26 @@ def test_default_image_user_can_initialize_private_data():
     assert output == "initialized"
 
 
+def test_image_contains_no_private_runtime_files():
+    output = docker(
+        "run",
+        "--rm",
+        "--entrypoint",
+        "python",
+        IMAGE,
+        "-c",
+        "from pathlib import Path; "
+        "assert {p.name for p in Path('/app').iterdir()} == {'app', 'requirements.txt'}; "
+        "assert not list(Path('/data').iterdir()); "
+        "bad = [str(p) for p in Path('/app').rglob('*') "
+        "if p.name.startswith('.env') or p.name in {'uploads', 'backups', '.git'} "
+        "or p.suffix in {'.db', '.sqlite', '.sqlite3', '.gz', '.zip'}]; "
+        "assert not bad, bad; "
+        "assert list(Path('/app/app/static/fonts').rglob('*.ttf')); print('clean')",
+    )
+    assert output == "clean"
+
+
 @pytest.mark.parametrize("existing_database", [False, True])
 def test_container_writes_host_owned_data_and_survives_restart(paths, existing_database):
     assert os.getuid() != 0, "Diesen Host-Rechte-Test als unprivilegierten Benutzer ausführen"
@@ -134,6 +158,10 @@ def test_container_writes_host_owned_data_and_survives_restart(paths, existing_d
         f"ADMIN_USERNAME={ADMIN[0]}",
         "--env",
         f"ADMIN_PASSWORD={ADMIN[1]}",
+        "--env",
+        "QR_MASTER_KEY=" + "ab" * 32,
+        "--env",
+        "PUBLIC_BASE_URL=http://127.0.0.1",
         IMAGE,
     )
     try:
@@ -200,6 +228,36 @@ def test_container_writes_host_owned_data_and_survives_restart(paths, existing_d
             with Image.open(io.BytesIO(response.read())) as image:
                 image.load()
                 assert image.size == (24, 24)
+        # A fresh resident session must work using only a synthetic QR link.
+        with opener.open(
+            Request(
+                base_url + "/r/werkstatt/access-link",
+                data=b"",
+                headers={"Origin": base_url},
+            ),
+            timeout=5,
+        ) as response:
+            qr_url = json.load(response)["url"]
+        token = parse_qs(urlsplit(qr_url).fragment)["access"][0]
+        resident = build_opener(HTTPCookieProcessor(CookieJar()))
+        with resident.open(
+            Request(
+                base_url + "/r/werkstatt/access",
+                data=json.dumps({"token": token}).encode(),
+                headers={"Origin": base_url, "Content-Type": "application/json"},
+            ),
+            timeout=5,
+        ) as response:
+            assert response.status == 204
+        with resident.open(base_url + "/logbuch", timeout=5) as response:
+            assert response.status == 200
+        with resident.open(base_url + "/r/sauna/qr.pdf", timeout=10) as response:
+            assert "no-store" in response.headers["Cache-Control"]
+            pdf = PdfReader(io.BytesIO(response.read()))
+            assert len(pdf.pages) == 1
+            assert ("Existing room" if existing_database else "Sauna") in pdf.pages[
+                0
+            ].extract_text()
         docker("restart", container)
         # Docker kann einen automatisch vergebenen Host-Port beim Neustart ändern.
         base_url = "http://" + docker("port", container, "8000/tcp")

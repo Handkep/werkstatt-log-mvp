@@ -8,3 +8,7 @@ data/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Local exports and browser review artifacts; never application source.
+*.tar.gz
+docs/ui-review*/

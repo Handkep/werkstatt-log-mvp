@@ -24,7 +24,9 @@ def test_rate_limit_shared_by_endpoints_and_clients(client, monkeypatch):
     response = client.post("/hilfe", data={"note": "three"}, headers={"X-Forwarded-For": "1.2.3.4"})
     assert response.status_code == 429
     assert 1 <= int(response.headers["retry-after"]) <= 600
-    with TestClient(app, headers={"Origin": "http://testserver"}) as other:
+    with TestClient(
+        app, base_url="https://testserver", headers={"Origin": "https://testserver"}
+    ) as other:
         assert other.post("/hilfe", data={"note": "four"}).status_code == 429
     db.init_db()  # Neustart setzt Limit und Hash-Schlüssel nicht zurück.
     assert client.post("/hilfe", data={"note": "five"}).status_code == 429

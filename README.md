@@ -54,6 +54,74 @@ auf dem Host abgebildeten IDs berücksichtigt werden.
 
 Nach Änderungen den laufenden Dienst mit dem neu gebauten Image neu erstellen.
 
+## Fertiges Container-Image (GHCR)
+
+GitHub Actions veröffentlicht nach erfolgreichen Backend-, Browser- und nativen
+Containerprüfungen auf AMD64 und ARM64 das Image
+`ghcr.io/handkep/werkstatt-log-mvp`. Pull Requests veröffentlichen nichts.
+
+- `latest`: neuester erfolgreich geprüfter Commit auf `main`.
+- `sha-<vollständiger Commit-Hash>`: gezielt auswählbarer Quellstand.
+- Ein Digest (`@sha256:…`) bezeichnet exakt das veröffentlichte Image; bei erneuten
+  Builds desselben Commits können sich Basisimage oder Build-Metadaten ändern.
+
+Buildx und QEMU erzeugen ein gemeinsames Multiarch-Image. Die Veröffentlichung
+verwendet ausschließlich das kurzlebige `GITHUB_TOKEN`; nur der Veröffentlichungsjob
+hat `packages: write`. Alle Actions sind auf konkrete Commit-SHAs festgelegt.
+Ein serialisierter Veröffentlichungsjob prüft vor dem Aktualisieren von `latest`
+nochmals den aktuellen `main`-Commit. Ältere Durchläufe können dadurch kein bereits
+veröffentlichtes neueres `latest` zurücksetzen. Workflow-Zusammenfassung und
+Image-Metadaten nennen Quelle, Commit und Digest. Vor dem Aktualisieren von
+`latest` wird der veröffentlichte Digest auf beiden Plattformen nochmals geladen
+und mit temporären Daten geprüft (ARM64 dabei unter QEMU).
+
+### Einmalige öffentliche Freigabe
+
+Neue GHCR-Pakete sind zunächst privat. Nach dem ersten erfolgreichen Workflow unter
+[Package settings](https://github.com/users/Handkep/packages/container/werkstatt-log-mvp/settings)
+die Sichtbarkeit auf **Public** stellen. Danach ist kein Registry-Login nötig.
+Die Paketbeschreibung stammt aus den Image-/Manifest-Metadaten; die jeweiligen
+Image-Versionen tragen Commit und Digest.
+
+Ein Download ohne gespeicherte Registry-Anmeldung lässt sich so prüfen:
+
+```bash
+registry_config=$(mktemp -d)
+docker --config "$registry_config" pull ghcr.io/handkep/werkstatt-log-mvp:latest
+rmdir "$registry_config"
+```
+
+Das Image enthält Anwendung, Abhängigkeiten und lokale Schriftdateien.
+`.env`, Nutzungsdaten, Uploads, Archive und lokale Prüfunterlagen sind vom
+Build-Kontext ausgeschlossen. Zugangsdaten und `QR_MASTER_KEY` werden weiterhin
+erst beim Containerstart bereitgestellt. Der Prozess läuft unverändert ohne Root.
+
+### Verwendung auf einem vorhandenen Server
+
+Die mitgelieferte Compose-Datei behält ihren lokalen Build. Wer das fertige Image
+verwenden möchte, ersetzt beim bestehenden Dienst ausschließlich `build: .` durch:
+
+```yaml
+image: ghcr.io/handkep/werkstatt-log-mvp:latest
+```
+
+Netzwerke, Portzuordnung, `.env`, UID/GID und insbesondere `./data:/data` sowie den
+vorhandenen `QR_MASTER_KEY` beibehalten. Vor dem Versionswechsel die Daten sichern.
+Danach im bestehenden Projektverzeichnis:
+
+```bash
+docker compose pull werkstatt-log
+docker compose up -d --no-build werkstatt-log
+```
+
+Für einen festgelegten Stand den Commit-Tag oder Digest statt `latest` einsetzen.
+Ein Wechsel auf ein älteres Image ersetzt keine Datensicherung: Bei zukünftigen
+Datenbankschemaänderungen muss deren Rückwärtskompatibilität separat geprüft werden.
+Es gibt keine automatische Aktualisierung und keine Änderung an entfernten Hosts.
+
+Offizielle Referenzen: [GitHub Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry),
+[Docker Multiarch-Builds](https://docs.docker.com/build/ci/github-actions/multi-platform/).
+
 ## Navigation und mobile Nutzung
 
 Die Weboberfläche kombiniert **Noto Serif Display** für Seitentitel und Raumnamen
@@ -244,10 +312,10 @@ widerruft Tokens. Lange, geheime Zugangsdaten und HTTPS sind erforderlich.
 | `DATA_DIR` | `./data` im Repository | DB und Uploads; im Container `/data` |
 | `ADMIN_USERNAME`, `ADMIN_PASSWORD` | leer | bestehende Zugangsdaten für die Verwaltungsanmeldung |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | erlaubte Hostnamen/IPs, kommasepariert, ohne Port |
-| `PUBLIC_BASE_URL` | leer; Compose `http://localhost:9000` | explizite vertrauenswürdige Basis für QR-Links; kein Host-Header-Fallback |
+| `PUBLIC_BASE_URL` | leer; Compose `http://localhost:9000` | feste Außenadresse für QR-Links und HTTPS-Erkennung am passenden Host/Port; kein Host-Header-Fallback für QR-Links |
 | `QR_MASTER_KEY` | leer | einmalig kryptografisch zufällig erzeugter 256-Bit-Schlüssel als 64 Hex-Zeichen |
 | `READER_SESSION_DAYS` | `365` | Sliding Expiration: erneute Laufzeit ab jedem erfolgreichen geschützten Reader-Zugriff |
-| `TRUSTED_PROXIES` | leer | explizit vertraute Proxy-IP-Adressen/CIDR-Netze |
+| `TRUSTED_PROXIES` | leer | optionale Proxy-IP-/CIDR-Freigabe für Besucher-IP und Protokoll-Fallback |
 | `APP_UID`, `APP_GID` | `1000`, `1000` | Container-UID/GID; passend zum Eigentümer des Datenverzeichnisses setzen |
 | `HOST_PORT` | `9000` | veröffentlichter Docker-Port |
 | `HOST_BIND` | `0.0.0.0` | Docker-Bind-Adresse; bei lokalem Proxy `127.0.0.1` setzen |
@@ -275,13 +343,13 @@ Request-Größe passend konfigurieren. Eine ausgeschöpfte Bildquote verhindert 
 Nutzung ohne Bilder. Für DB, SMTP, Backups und temporäre Multipart-Dateien zusätzlichen
 Platz reservieren; die Bildquote ist keine Dateisystemquote.
 
-Beispiel für eine LAN-Installation in `.env` (Adresse anpassen):
+Beispiel für eine Installation hinter einem HTTPS-Proxy in `.env` (Domain anpassen):
 
 ```dotenv
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=hier-ein-langes-geheimes-passwort
-ALLOWED_HOSTS=192.168.2.127,localhost,127.0.0.1
-PUBLIC_BASE_URL=http://192.168.2.127:9000
+ALLOWED_HOSTS=raumlog.example.org
+PUBLIC_BASE_URL=https://raumlog.example.org
 HOST_PORT=9000
 ```
 
@@ -294,15 +362,34 @@ Formulare und die Admin-Verwaltung verfügbar; der QR-Zugang und die PDF-Erzeugu
 
 ## Proxy und Ressourcenbegrenzung
 
+`PUBLIC_BASE_URL` ist die feste Außenadresse. Ist dort HTTPS konfiguriert und
+passen Hostname und Port der Anfrage exakt dazu, behandelt die App die Anfrage
+als öffentliches HTTPS – auch wenn Caddy intern per HTTP weiterleitet. Dadurch
+passen Herkunftsprüfung, Reader-/Admin-/CSRF-Cookies (`Secure`) und HSTS zusammen.
+Es ist keine Caddy-IP in `TRUSTED_PROXIES` für diesen HTTPS-Zugang nötig. Der Proxy
+muss den öffentlichen Host einschließlich eines gegebenenfalls abweichenden Ports
+erhalten. Standardports 443/80 werden normalisiert; ähnliche Fremddomains und
+abweichende Ports übernehmen die HTTPS-Einstellung nicht. Andere explizit erlaubte
+Hosts behalten ihre Transportdaten. Eine HTTP-Außenadresse stuft eine tatsächlich
+sichere Verbindung nicht herab. Lokales HTTP über localhost bleibt benutzbar.
+
 Uvicorn **immer mit `--no-proxy-headers`** starten (in Docker bereits eingestellt).
-Sonst könnte Uvicorn Header vor der Anwendung auswerten und deren Vertrauensprüfung
-umgehen. Die App wertet `X-Forwarded-For` und `X-Forwarded-Proto` ausschließlich aus,
-wenn die tatsächliche Gegenstelle in `TRUSTED_PROXIES` liegt. Bei mehreren Proxies
-wird die IP-Kette von rechts bis zum ersten nicht vertrauten Hop ausgewertet.
-`Forwarded` und `X-Forwarded-Host` werden nicht für Identität oder QR-URLs benutzt.
-Keine pauschalen Netze wie `0.0.0.0/0` vertrauen. Vorgeschaltete Proxies müssen eingehende
-Forwarding-Header überschreiben. Bei Docker die tatsächlich am Container sichtbare
-Proxy-Adresse konfigurieren, nicht pauschal das ganze Docker-Netz.
+Die App übernimmt `X-Forwarded-For` und als Protokoll-Fallback `X-Forwarded-Proto`
+ausschließlich von explizit in `TRUSTED_PROXIES` freigegebenen Gegenstellen.
+Die konfigurierte HTTPS-Außenadresse hat für ihren Host Vorrang. `Forwarded` und
+`X-Forwarded-Host` beeinflussen weder Besucheridentität noch Außenadresse oder
+QR-Links. Fremde Origins und Cross-Site-Requests bleiben gesperrt; ein passender
+Host oder ein Forwarding-Header gewährt für sich keine Leseberechtigung.
+
+`TRUSTED_PROXIES` ist optional, wenn echte Besucher-IP-Adressen hinter einem Proxy
+für die Ratenbegrenzung benötigt werden. Ohne Freigabe zählt die tatsächliche
+Proxy-Gegenstelle als Client; alle Besucher darüber teilen sich das Clientlimit.
+Bei Verwendung nur die tatsächlichen Gegenstellen freigeben, nicht pauschal
+`0.0.0.0/0` oder das gesamte Docker-Netz. Vorgeschaltete Proxies müssen eingehende
+Forwarding-Header überschreiben. Bei mehreren Proxies wird die IP-Kette von rechts
+bis zum ersten nicht vertrauten Hop ausgewertet. Bei dynamischen Docker-IP-Adressen
+muss eine optionale Freigabe nach einer Neuerstellung überprüft werden. Cookie-
+und Herkunftsprüfungen bleiben aktiv; QR-Schlüssel werden nicht erneuert.
 
 Die App liest mutierende Requests vollständig und mit Byte-/Zeitlimit ein, bevor
 Multipart verarbeitet wird, auch ohne `Content-Length`. Überschreitungen ergeben 413,
@@ -340,7 +427,8 @@ location / {
 ```
 
 Für dieses Beispiel `ALLOWED_HOSTS=raumlog.example.org`, `PUBLIC_BASE_URL=https://raumlog.example.org`,
-`HOST_BIND=127.0.0.1` und `TRUSTED_PROXIES` passend zur wirklichen Proxy-Gegenstelle setzen.
+`HOST_BIND=127.0.0.1` und `PUBLIC_BASE_URL` passend zur öffentlichen Adresse setzen.
+`TRUSTED_PROXIES` nur bei benötigter Besucher-IP-Erkennung gezielt konfigurieren.
 Proxy-Timeouts messen teils Pausen, während das Anwendungslimit die gesamte Übertragung
 begrenzt. HTTPS-Zertifikate und weitere Serverblöcke sind in diesem Ausschnitt nicht enthalten.
 
@@ -515,7 +603,9 @@ RUN_DOCKER_TESTS=1 python -m pytest -q tests/test_docker.py
 ```
 
 Die Tests verwenden das Image `werkstatt-log-mvp-werkstatt-log`; bei abweichendem
-Image-Namen `RAUMLOG_TEST_IMAGE` setzen. Ein eigener CI-Job baut und prüft das Image.
+Image-Namen `RAUMLOG_TEST_IMAGE` setzen. Zwei native CI-Jobs bauen und prüfen das Image auf AMD64 und ARM64, einschließlich
+Anmeldung, QR-Zugang, PDF-Download und Datenpersistenz. Erst danach darf die
+Multiarch-Veröffentlichung starten.
 
 Die aktuelle lokale Verifikation und verbleibende Einschränkungen stehen im
 [Abschlussbericht](SECURITY_REVIEW.md).
@@ -562,3 +652,29 @@ Metadaten ohne Zugangsschlüssel sowie QR-Decodierung nach dem Rendern bei 150 u
 300 dpi. Dafür `requirements-dev.txt` installieren; zusätzlich wird Poppler
 (`pdftoppm`, beispielsweise Paket `poppler-utils`) benötigt. Ein Smartphone-Scan
 und ein Papierausdruck bleiben zusätzliche praktische Prüfungen.
+
+
+### QR-Aktivierung vor der Navigation abschließen
+
+Der Schlüssel im `#access`-Fragment wird früh aus der Adresse entfernt und nur
+im Arbeitsspeicher bis zum Austausch gehalten. Während der Aktivierung merkt die
+Raumseite normale interne Link-Klicks einschließlich Tastaturbedienung; bei mehreren
+Klicks gilt das zuletzt gewählte Ziel. Die Navigation zeigt `aria-busy`, und der
+Status lautet „Zugang wird aktiviert …“. Downloads, externe Links, reine Anker
+und bewusst in einem anderen Tab geöffnete Links behalten ihr Browser-Verhalten.
+
+Nach dem POST-Austausch bestätigt ein geschützter GET auf `/rooms/latest-status`,
+dass der Browser den Zugang tatsächlich mitsendet. Erst dann wird zum gemerkten
+Ziel gewechselt; ohne Ziel wird die Raumseite aktualisiert. Bei abgelehnter Prüfung,
+fehlendem Cookie, Netzwerkfehler oder nach insgesamt 15 Sekunden bleibt die Seite
+stehen, verwirft das Ziel und gibt die Navigation wieder frei. HTTP 403 wird nicht
+pauschal als abgelaufener QR-Code gemeldet. Keine Schlüssel in Navigationslinks,
+Browser-Speicher, Testartefakten oder Logs ablegen. QR-Lesezugang gilt im Browser,
+in dem der Code geöffnet wurde; ein anderer Browser hat seine eigene Sitzung.
+
+`tests/test_reader_activation_browser.py` prüft den Ablauf mit frischen isolierten
+HTTPS-Browserkontexten, verzögertem Austausch und verzögerter Bestätigung,
+mehrfacher Navigation, fehlendem Cookie, Netzwerkfehler und Timeout. Die Backend- und
+Browsertests für HTTPS hinter einem HTTP-Backend bestätigen die feste Außenadresse,
+sichere Reader-/Admin-/CSRF-Cookies und die Ablehnung fremder Origins oder gefälschter
+Forwarding-Header ohne Proxy-Freigabe.

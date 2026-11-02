@@ -540,3 +540,35 @@ def test_new_rooms_are_readable_without_another_scan(reader_client):
         conn.execute("INSERT INTO rooms(slug, name) VALUES ('neuer-raum', 'Neuer Raum')")
     assert reader_client.get("/r/neuer-raum/qr.pdf").status_code == 200
     assert reader_client.cookies.get(capabilities.READER_COOKIE) == raw
+
+
+def test_https_proxy_exchange_uses_public_url_without_trusted_peer(client, monkeypatch):
+    protection = app.middleware_stack
+    while not isinstance(protection, middleware.RequestProtectionMiddleware):
+        protection = protection.app
+    monkeypatch.setattr(protection, "trusted_proxies", [])
+    headers = {
+        "Origin": "https://testserver",
+        "Sec-Fetch-Site": "same-origin",
+        "X-Forwarded-Proto": "http",
+        "X-Forwarded-Host": "evil.example",
+        "X-Forwarded-For": "192.0.2.20",
+    }
+    with TestClient(app, base_url="http://testserver", client=("10.12.0.5", 4321)) as proxy:
+        payload = {"token": token("werkstatt")}
+        response = proxy.post("/r/werkstatt/access", json=payload, headers=headers)
+        assert response.status_code == 204
+        cookies = SimpleCookie()
+        cookies.load(response.headers["set-cookie"])
+        cookie = cookies[capabilities.READER_COOKIE]
+        assert cookie["secure"] and cookie["httponly"]
+        assert cookie["samesite"] == "lax" and cookie["path"] == "/"
+        assert proxy.get("https://testserver/logbuch", headers=headers).status_code == 200
+        assert (
+            proxy.post(
+                "/r/werkstatt/access",
+                json=payload,
+                headers={**headers, "Origin": "https://evil.example"},
+            ).status_code
+            == 403
+        )
