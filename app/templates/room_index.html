@@ -23,7 +23,7 @@
         </div>
         {% endif %}
         <div class="room-card-copy">
-          <h2><a class="room-card-link" href="/r/{{ room.slug }}">{{ room.name }}</a></h2>
+          <h2><a class="room-card-link" href="/r/{{ room.slug }}">{{ icon(room_icons.get(room.slug, 'door-open')) }}<span>{{ room.name }}</span></a></h2>
           <p>{{ room.description }}</p>
         </div>
         {% if has_read_access %}

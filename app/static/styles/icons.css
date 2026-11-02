@@ -122,3 +122,26 @@
     position: absolute;
   }
 }
+
+/* Beschriftete öffentliche Navigation und Raumübersicht. */
+.site-nav[aria-label="Hauptnavigation"] .site-nav-link {
+  gap: 8px;
+}
+
+.site-nav-label {
+  min-width: 0;
+}
+
+.room-card-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.room-card-link > .icon {
+  margin-top: calc((1lh - 22px) / 2);
+}
+
+.room-card-link > span {
+  min-width: 0;
+}

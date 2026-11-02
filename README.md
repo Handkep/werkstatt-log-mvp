@@ -56,10 +56,37 @@ Nach Änderungen den laufenden Dienst mit dem neu gebauten Image neu erstellen.
 
 ## Navigation und mobile Nutzung
 
-Alle Ansichten, Formularfelder und Schaltflächen verwenden **Google Sans Flex**.
-Die variablen Webfonts werden lokal mit der App ausgeliefert; es entstehen keine
-Font-Anfragen an Google. QR-PDFs betten dieselbe Schriftfamilie ein. Quellen und
-Lizenz stehen unter [app/static/fonts](app/static/fonts/README.md).
+Die Weboberfläche kombiniert **Noto Serif Display** für Seitentitel und Raumnamen
+auf Karten mit **Google Sans Flex** für Fließtext, Daten und Bedienung. App-Name
+und Verwaltungskopf verwenden ebenfalls Noto Serif Display. Beide Familien werden lokal
+ausgeliefert; es entstehen keine Font-Anfragen an Google. QR-PDFs betten weiterhin
+unverändert Google Sans Flex ein. Quellen, feste Asset-Versionen, Prüfsummen und
+Lizenzen stehen unter [app/static/fonts](app/static/fonts/README.md).
+
+### Typografie
+
+Der Kopfbereich zeigt einmalig „Zelter5 Raumlog“ beziehungsweise „Zelter5 Verwaltung“
+in Noto Serif Display Bold (700), mit 24 bis 32 Pixeln und Zeilenhöhe 1,15.
+Die Schriftzüge bleiben Links zur jeweiligen Startseite und dürfen umbrechen.
+
+Die Schriftrollen sind zentral in `app/static/styles/typography.css` definiert.
+Seitentitel verwenden Noto Serif Display Medium (500), normal breit und aufrecht:
+32 bis 40 Pixel (`clamp(2rem, 1.5rem + 1.25vw, 2.5rem)`), Zeilenhöhe 1,15 und
+ausgewogene Umbrüche. Raumnamen auf Karten verwenden denselben Schnitt mit 24 Pixeln
+und Zeilenhöhe 1,25. Lange Titel bleiben vollständig sichtbar und können umbrechen.
+Abschnittsüberschriften stehen in Google Sans Flex 600 mit 20 Pixeln und
+Zeilenhöhe 1,35; kleinere Inhaltsüberschriften und FAQ-Fragen behalten ihre Größen.
+Formularbeschriftungen und Navigation verwenden 600, Eingaben 400, Hauptaktionen 700.
+
+Fließtext hat Zeilenhöhe 1,6; längere Texte in Hilfe/Datenschutz 1,65 und kompakte
+Kartenbeschreibungen weiterhin 1,45. Zwischen Titel und Einführung stehen 12 Pixel,
+zwischen Einführung und Inhalt 24 Pixel; Raumkarten behalten 8 Pixel zwischen Name
+und Beschreibung. Inhaltsbreiten, Raster und Formularanordnung bleiben erhalten.
+
+Die Latin-Dateien der Serif-Schnitte werden zusätzlich vorgeladen; Latin Extended
+lädt bei Bedarf. `font-display: swap` mit Georgia als Serif-Ersatz hält die Seiten
+auch bei fehlenden Schriftdateien benutzbar. Gewichte und Farben sind in Hell und
+Dunkel identisch definiert; es gibt keine zusätzlichen Kursiv- oder Zierschnitte.
 
 Die drei Hauptseiten heißen **Räume**, **Logbuch** und **Hilfe & Infos**. Sie stehen
 auch nach einem QR-Scan als gleich breite Tabs im Header. Im geöffneten Raum heißt
@@ -497,3 +524,12 @@ Technische Referenzen: [FastAPI Lifespan](https://fastapi.tiangolo.com/advanced/
 [FastAPI BackgroundTasks](https://fastapi.tiangolo.com/tutorial/background-tasks/),
 [Pillow Bild-API](https://pillow.readthedocs.io/en/stable/reference/Image.html),
 [Nginx Request-Grenzen](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size).
+
+### Icons in Navigation und Raumübersicht
+
+Die öffentliche Navigation ergänzt ihre Texte um offene Tür, Notizbuch und
+Fragezeichen. Raumkarten zeigen Schraubenschlüssel, Geländer, Kochtopf, Heizkörper
+oder Sessel links vom Namen. Die Zuordnung liegt zentral in `ROOM_ICONS`; unbekannte
+Raum-Slugs erhalten die offene Tür. Alle Symbole sind dekorative, lokal gelieferte
+Lucide-SVGs (22 px, Strichstärke 2), ohne eigene Tabstopps. Texte und QR-Download
+bleiben eigenständig bedienbar; die Verwaltungsnavigation bleibt unverändert.

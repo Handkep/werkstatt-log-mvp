@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.auth import ADMIN_SESSION_SECONDS, csrf_token_for_request, request_is_admin
 from app.config import BASE_DIR, LIMITS, SITE_TITLE
-from app.constants import FUNNY_NAME_EXAMPLES, NAV_GROUPS
+from app.constants import FUNNY_NAME_EXAMPLES, NAV_GROUPS, ROOM_ICONS
 
 # Ein gemeinsamer Inhalts-Hash umfasst auch per @import geladene Stylesheets.
 ASSET_VERSION = hashlib.sha256(
@@ -24,6 +24,7 @@ ASSET_VERSION = hashlib.sha256(
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.globals["asset_version"] = ASSET_VERSION
+templates.env.globals["room_icons"] = ROOM_ICONS
 
 
 def random_name_placeholder() -> str:

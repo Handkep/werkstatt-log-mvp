@@ -136,9 +136,9 @@ ROOM_DEFINITIONS = [
 
 NAV_GROUPS = {
     "public": [
-        {"id": "rooms", "label": "Räume", "href": "/"},
-        {"id": "logbook", "label": "Logbuch", "href": "/logbuch"},
-        {"id": "help", "label": "Hilfe & Infos", "href": "/hilfe"},
+        {"id": "rooms", "icon": "door-open", "label": "Räume", "href": "/"},
+        {"id": "logbook", "icon": "notebook-pen", "label": "Logbuch", "href": "/logbuch"},
+        {"id": "help", "icon": "circle-question-mark", "label": "Hilfe & Infos", "href": "/hilfe"},
     ],
     "admin": [
         {"id": "admin", "label": "Einträge", "href": "/admin"},
@@ -148,4 +148,14 @@ NAV_GROUPS = {
     "meta": [
         {"id": "privacy", "label": "Datenschutz", "href": "/datenschutz"},
     ],
+}
+
+
+# Reine Darstellung; unbekannte Raum-Slugs verwenden eine offene Tür.
+ROOM_ICONS = {
+    "werkstatt": "wrench",
+    "dachterrasse": "fence",
+    "sommerkueche": "cooking-pot",
+    "sauna": "heater",
+    "ruheraum": "armchair",
 }

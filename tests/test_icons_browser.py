@@ -151,3 +151,91 @@ def test_theme_labels_with_blocked_storage_and_static_icon_delivery(page, live_u
     assert page.get_by_role("button", name="Dunkle Ansicht aktivieren", exact=True).is_visible()
     response = page.request.get(live_url + "/static/icons/lucide/sprite.svg")
     assert response.status == 200 and response.headers["content-type"].startswith("image/svg+xml")
+
+
+@pytest.mark.parametrize("width", [390, 768, 1280])
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_navigation_and_room_symbols_wrap_without_changing_links(
+    page, live_url, width, theme, tmp_path
+):
+    page.set_viewport_size({"width": width, "height": 900})
+    page.emulate_media(reduced_motion="reduce")
+    page.add_init_script(f"localStorage.setItem('theme', '{theme}')")
+    for path in ["/", "/r/werkstatt", "/hilfe"]:
+        page.goto(live_url + path)
+        wait_for_icons(page)
+        nav = page.get_by_role("navigation", name="Hauptnavigation", exact=True)
+        assert nav.locator("svg").count() == 3
+        for name, symbol in [
+            ("Alle Räume" if path.startswith("/r/") else "Räume", "door-open"),
+            ("Logbuch", "notebook-pen"),
+            ("Hilfe & Infos", "circle-question-mark"),
+        ]:
+            link = nav.get_by_role("link", name=name, exact=True)
+            assert link.locator("svg").get_attribute("data-icon") == symbol
+            assert link.locator("svg").get_attribute("aria-hidden") == "true"
+            link.focus()
+            assert link.evaluate("el => el === document.activeElement")
+        if path == "/":
+            for slug, symbol in [
+                ("werkstatt", "wrench"),
+                ("dachterrasse", "fence"),
+                ("sommerkueche", "cooking-pot"),
+                ("sauna", "heater"),
+                ("ruheraum", "armchair"),
+            ]:
+                assert (
+                    page.locator(f'.room-card-link[href="/r/{slug}"] svg').get_attribute(
+                        "data-icon"
+                    )
+                    == symbol
+                )
+            page.screenshot(path=str(tmp_path / f"navigation-rooms-{width}-{theme}.png"))
+        for scale in ["100%", "200%"]:
+            page.evaluate("scale => document.documentElement.style.fontSize = scale", scale)
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            assert nav.evaluate("""el => [...el.querySelectorAll('a, svg, span')].every(node => {
+                const r = node.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth;
+            })""")
+
+
+def test_unknown_room_uses_door_and_long_title_keeps_qr_separate(page, live_url):
+    from app import db
+
+    with db.db_connect() as conn:
+        conn.execute("UPDATE rooms SET slug='neuer-raum' WHERE slug='ruheraum'")
+        conn.execute(
+            "UPDATE rooms SET name=? WHERE slug='werkstatt'",
+            ("Werkstatt für Holz, Metall und gemeinsame Reparaturen",),
+        )
+    page.emulate_media(reduced_motion="reduce")
+    unlock(page, live_url)
+    page.set_viewport_size({"width": 390, "height": 900})
+    page.goto(live_url)
+    wait_for_icons(page)
+    assert (
+        page.locator('.room-card-link[href="/r/neuer-raum"] svg').get_attribute("data-icon")
+        == "door-open"
+    )
+    title = page.locator('.room-card-link[href="/r/werkstatt"]')
+    title.focus()
+    assert title.evaluate("el => el === document.activeElement")
+    for scale in ["100%", "200%"]:
+        page.evaluate("scale => document.documentElement.style.fontSize = scale", scale)
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        icon = title.locator("svg").bounding_box()
+        text = title.locator("span").bounding_box()
+        qr = page.locator(".room-card-qr").first.bounding_box()
+        assert icon["width"] == pytest.approx(22, abs=0.1)
+        assert icon["height"] == pytest.approx(22, abs=0.1)
+        assert icon["y"] < text["y"] + 35
+        assert text["x"] + text["width"] <= qr["x"]
+    page.evaluate("document.documentElement.style.fontSize = '100%'")
+    with page.expect_download() as download:
+        page.locator(".room-card-qr").first.click()
+    assert download.value.suggested_filename.endswith(".pdf")
+    assert page.url == live_url + "/"
+    title.click()
+    page.wait_for_url("**/r/werkstatt")
+    test_browser.login_admin(page, live_url)
+    assert page.get_by_role("navigation", name="Verwaltungsnavigation").locator("svg").count() == 0

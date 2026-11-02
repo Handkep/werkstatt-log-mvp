@@ -1,0 +1,167 @@
+/* Noto Serif Display · latin-ext · Medium 500 */
+@font-face {
+  font-family: "Noto Serif Display";
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(/static/fonts/noto-serif-display-500-latin-ext.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Noto Serif Display · latin · Medium 500 */
+@font-face {
+  font-family: "Noto Serif Display";
+  font-style: normal;
+  font-weight: 500;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(/static/fonts/noto-serif-display-500-latin.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Noto Serif Display · latin-ext · Bold 700 */
+@font-face {
+  font-family: "Noto Serif Display";
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(/static/fonts/noto-serif-display-700-latin-ext.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Noto Serif Display · latin · Bold 700 */
+@font-face {
+  font-family: "Noto Serif Display";
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url(/static/fonts/noto-serif-display-700-latin.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --font-ui: "Google Sans Flex", system-ui, sans-serif;
+  --font-display: "Noto Serif Display", Georgia, "Times New Roman", serif;
+  --type-page-size: clamp(2rem, 1.5rem + 1.25vw, 2.5rem);
+  --type-room-size: 1.5rem;
+  --type-section-size: 1.25rem;
+  --type-weight-display: 500;
+  --type-weight-body: 400;
+  --type-weight-ui: 600;
+  --type-weight-action: 700;
+  --leading-display: 1.15;
+  --leading-room: 1.25;
+  --leading-section: 1.35;
+  --leading-body: 1.6;
+  --leading-reading: 1.65;
+  --space-title-copy: 12px;
+  --space-copy-content: 24px;
+  --space-section: 28px;
+  font-family: var(--font-ui);
+  font-weight: var(--type-weight-body);
+  font-kerning: normal;
+}
+
+h1,
+.room-card h2 {
+  font-family: var(--font-display);
+  font-weight: var(--type-weight-display);
+  font-style: normal;
+  font-stretch: 100%;
+  font-synthesis: none;
+  letter-spacing: normal;
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  margin: 0 0 var(--space-title-copy);
+  font-size: var(--type-page-size);
+  line-height: var(--leading-display);
+  text-wrap: balance;
+}
+
+.room-card h2 {
+  font-size: var(--type-room-size);
+  line-height: var(--leading-room);
+}
+
+h2 {
+  margin: var(--space-section) 0 var(--space-title-copy);
+  font-family: var(--font-ui);
+  font-size: var(--type-section-size);
+  font-weight: var(--type-weight-ui);
+  line-height: var(--leading-section);
+}
+
+.section-heading h2 {
+  font-size: var(--type-section-size);
+}
+
+p {
+  line-height: var(--leading-body);
+}
+
+.help-topics details p {
+  line-height: var(--leading-reading);
+}
+
+.card > h1 + p {
+  margin: 0 0 var(--space-copy-content);
+}
+
+.room-heading + p {
+  margin: var(--space-title-copy) 0 var(--space-copy-content);
+}
+
+.card > h1 + .room-grid {
+  margin-top: var(--space-copy-content);
+}
+
+.site-nav-link,
+.admin-header-link,
+.filter-chip,
+.help-topics summary,
+.field-label,
+.file-drop-title,
+label,
+fieldset {
+  font-weight: var(--type-weight-ui);
+}
+
+input,
+select,
+textarea {
+  min-width: 0;
+  font-weight: var(--type-weight-body);
+}
+
+.radio-option span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+button,
+.button {
+  font-weight: var(--type-weight-action);
+}
+
+.secondary-button,
+.pagination .secondary {
+  font-weight: var(--type-weight-ui);
+}
+
+/* Gemeinsamer Schriftzug; Seitentitel behalten Medium 500. */
+.site-brand strong {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.5rem, 1.28rem + 0.9vw, 2rem);
+  line-height: 1.15;
+  font-style: normal;
+  font-stretch: 100%;
+  font-synthesis: none;
+  letter-spacing: normal;
+  overflow-wrap: anywhere;
+}

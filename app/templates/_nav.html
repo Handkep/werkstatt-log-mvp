@@ -2,8 +2,7 @@
 <header class="site-header{% if nav_section in ['admin', 'admin_login'] %} admin-header{% endif %}">
   <div class="site-header-top">
     <a class="site-brand" href="{{ '/admin' if nav_section in ['admin', 'admin_login'] else '/' }}">
-      <span class="site-brand-kicker">Zelter5</span>
-      <strong>{{ 'Verwaltung' if nav_section in ['admin', 'admin_login'] else site_title }}</strong>
+      <strong>{{ 'Zelter5 Verwaltung' if nav_section in ['admin', 'admin_login'] else site_title }}</strong>
     </a>
     <div class="site-header-actions">
       {% include "theme_toggle.html" %}
@@ -34,7 +33,8 @@
         href="{{ item.href }}"
         {% if item.is_current %}aria-current="page"{% endif %}
       >
-        {{ item.label }}
+        {{ icon(item.icon) }}
+        <span class="site-nav-label">{{ item.label }}</span>
       </a>
     {% endfor %}
   </nav>
