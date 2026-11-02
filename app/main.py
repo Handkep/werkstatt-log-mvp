@@ -18,6 +18,7 @@ from app.db import init_db
 from app.middleware import RequestProtectionMiddleware
 from app.public_errors import public_failure, wants_public_html
 from app.routes.admin import router as admin_router
+from app.routes.admin_auth import router as admin_auth_router
 from app.routes.public import invalid_form_response
 from app.routes.public import router as public_router
 from app.utils import configured_public_base_url
@@ -79,6 +80,7 @@ async def public_validation_error(request: Request, exc: RequestValidationError)
 
 
 app.include_router(public_router)
+app.include_router(admin_auth_router)
 app.include_router(admin_router)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS, www_redirect=False)
 app.add_middleware(RequestProtectionMiddleware)

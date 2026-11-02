@@ -62,12 +62,12 @@ def test_icon_actions_and_responsive_viewer(page, live_url, client, width, theme
     theme_button.focus()
     assert theme_button.evaluate("el => getComputedStyle(el, '::after').visibility") == "visible"
     assert theme_button.evaluate("el => getComputedStyle(el).outlineStyle") == "solid"
-    menu = page.locator(".admin-menu-toggle")
-    menu.click()
-    assert page.locator(".admin-menu").get_attribute("open") is not None
-    assert menu.evaluate("el => getComputedStyle(el, '::after').visibility") == "hidden"
-    page.keyboard.press("Escape")
-    assert page.locator(".admin-menu").get_attribute("open") is None
+    entry = page.get_by_role("link", name="Verwaltung", exact=True)
+    assert entry.get_attribute("href") == "/admin"
+    entry.click()
+    page.get_by_label("Benutzername", exact=True).wait_for()
+    page.get_by_role("link", name="Zur App", exact=True).click()
+    page.wait_for_url(live_url + "/")
     wait_for_icons(page)
     check_targets(page)
     page.screenshot(

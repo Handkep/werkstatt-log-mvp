@@ -9,7 +9,7 @@ from PIL import Image, PngImagePlugin
 from app import db
 from app.routes import public
 from app.services import uploads
-from tests.conftest import ADMIN, VALID
+from tests.conftest import VALID, admin_auth
 from tests.test_security import csrf
 
 
@@ -37,31 +37,31 @@ def test_valid_images_and_authorization(client, paths, fmt):
         filename = conn.execute("SELECT filename FROM usage_images").fetchone()[0]
     url = f"/uploads/{filename}"
     assert client.get(url).status_code == 403
-    response = client.get(url, auth=ADMIN)
+    response = client.get(url, auth=admin_auth(client))
     assert response.status_code == 200
     assert "no-store" in response.headers["cache-control"]
     with Image.open(io.BytesIO(response.content)) as image:
         image.load()
         assert image.format == fmt
-    assert client.get("/uploads/" + "a" * 32 + ".png", auth=ADMIN).status_code == 404
+    assert client.get("/uploads/" + "a" * 32 + ".png", auth=admin_auth(client)).status_code == 404
     token = csrf(client)
-    client.post("/admin/session/1/delete", auth=ADMIN, data={"csrf_token": token})
-    assert client.get(url, auth=ADMIN).status_code == 404
+    client.post("/admin/session/1/delete", auth=admin_auth(client), data={"csrf_token": token})
+    assert client.get(url, auth=admin_auth(client)).status_code == 404
     assert (paths[1] / filename).exists()  # Soft-Delete entfernt keine Datei.
 
 
 def test_orphans_missing_files_and_symlinks(client, paths):
     orphan = paths[1] / ("a" * 32 + ".jpg")
     orphan.write_bytes(image_bytes("JPEG"))
-    assert client.get(f"/uploads/{orphan.name}", auth=ADMIN).status_code == 404
+    assert client.get(f"/uploads/{orphan.name}", auth=admin_auth(client)).status_code == 404
     post_image(client, image_bytes())
     with db.db_connect() as conn:
         filename = conn.execute("SELECT filename FROM usage_images").fetchone()[0]
     target = paths[1] / filename
     target.unlink()
-    assert client.get(f"/uploads/{filename}", auth=ADMIN).status_code == 404
+    assert client.get(f"/uploads/{filename}", auth=admin_auth(client)).status_code == 404
     target.symlink_to(orphan)
-    assert client.get(f"/uploads/{filename}", auth=ADMIN).status_code == 404
+    assert client.get(f"/uploads/{filename}", auth=admin_auth(client)).status_code == 404
 
 
 @pytest.mark.parametrize(
@@ -105,7 +105,7 @@ def test_metadata_removed_and_exif_orientation(client):
     assert post_image(client, image_bytes("JPEG", exif=exif)).status_code == 303
     with db.db_connect() as conn:
         filename = conn.execute("SELECT filename FROM usage_images").fetchone()[0]
-    content = client.get(f"/uploads/{filename}", auth=ADMIN).content
+    content = client.get(f"/uploads/{filename}", auth=admin_auth(client)).content
     with Image.open(io.BytesIO(content)) as image:
         assert image.size == (20, 24)
         assert not image.getexif()
@@ -115,7 +115,9 @@ def test_metadata_removed_and_exif_orientation(client):
     assert post_image(client, image_bytes(pnginfo=metadata)).status_code == 303
     with db.db_connect() as conn:
         filename = conn.execute("SELECT filename FROM usage_images ORDER BY id DESC").fetchone()[0]
-    with Image.open(io.BytesIO(client.get(f"/uploads/{filename}", auth=ADMIN).content)) as image:
+    with Image.open(
+        io.BytesIO(client.get(f"/uploads/{filename}", auth=admin_auth(client)).content)
+    ) as image:
         assert "Private" not in image.info
 
 

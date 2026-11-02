@@ -7,12 +7,56 @@
   <p class="muted">So funktioniert das Raumlog. Für Fragen und Hinweise kannst du uns unten eine Nachricht hinterlassen.</p>
 
   <div class="help-topics">
-    <details><summary>Wie dokumentiere ich eine Nutzung?</summary><p>Wähle einen Raum, gib Name und Haus an und beschreibe den Zustand beim Verlassen. Bemerkungen und Bilder sind freiwillig. Nach dem Speichern hilft dir eine kurze Checkliste bei der Übergabe.</p></details>
-    <details id="qr-zugang"><summary>Wie bekomme ich Zugang zum Logbuch?</summary><p>Scanne einen aktuellen Raum-QR-Code mit deinem Smartphone und öffne den Link in deinem Browser. Ein gültiger Code gibt dir Lesezugang zu allen Raumlogbüchern und zugehörigen Bildern. Er öffnet gleichzeitig das Formular des gescannten Raums.</p><p>Ist dein Zugang abgelaufen oder widerrufen, scanne einen aktuellen Code im Raum erneut. Ohne Lesezugang kannst du weiterhin Nutzungen und Nachrichten eintragen.</p><p>Mit Lesezugang kannst du Raum-QR-PDFs herunterladen und Zugangslinks kopieren. Wer einen solchen Code oder Link erhält, kann ebenfalls alle Logbücher und Bilder lesen.</p></details>
-    <details><summary>Wer kann meine Angaben sehen?</summary><p>Name, Haus, Nutzungsangaben und Bilder sind für Personen mit gültigem QR-Lesezugang und für die Administration sichtbar. Nachrichten aus dem Formular auf dieser Seite sieht ausschließlich die Administration. Der Name ist dabei optional.</p></details>
-    <details><summary>Was merkt sich mein Gerät?</summary><p>Name, Haus und Nummer werden bei aktivierter Speicheroption bereits beim Ausfüllen auf diesem Gerät gemerkt. Du kannst die Option im Raumformular ausschalten oder „Gespeicherte Eingaben entfernen“ wählen. Bemerkungen, Zustände und Bilder werden nicht lokal gespeichert.</p><p>Der QR-Lesezugang wird getrennt davon über ein Browsercookie gespeichert. Weitere Einzelheiten findest du in den <a href="/datenschutz">Datenschutzhinweisen</a>.</p></details>
-    <details><summary>Welche Bilder kann ich hinzufügen?</summary><p>Du kannst JPG-, PNG- und WebP-Bilder hochladen: maximal {{ limits.max_upload_images }} Bilder mit jeweils {{ limits.max_upload_size_mb }} MB. Wähle nur Bilder aus, die für deine Meldung nötig sind. Anzahl und Größe werden schon bei der Auswahl geprüft; der Server prüft zusätzlich den Bildinhalt.</p></details>
+    <details>
+      <summary>Wie dokumentiere ich eine Nutzung?</summary>
+      <p>Wähle einen Raum, gib Name, Haus und Nummer an und beschreibe den Zustand beim Verlassen.
+        Bemerkungen und Bilder sind freiwillig. Mit „Nutzung speichern“ schickst du den Eintrag ab.
+        Danach hilft dir eine kurze Checkliste bei der Übergabe.</p>
+    </details>
+    <details id="qr-zugang">
+      <summary>Wie bekomme ich Zugang zum Logbuch?</summary>
+      <p>Scanne einen aktuellen Raum-QR-Code mit deinem Smartphone und öffne den Link in deinem Browser.
+        Er öffnet das Raumformular und gibt dir Lesezugang zu allen Raumlogbüchern und zugehörigen Bildern.</p>
+      <p>Der Browser merkt sich den Zugang auch nach einem Neustart. Ist er abgelaufen oder widerrufen,
+        scanne einen aktuellen Code im Raum erneut. Das gilt auch, wenn du die Website-Cookies gelöscht hast.
+        Ohne Lesezugang kannst du weiterhin Nutzungen und Nachrichten eintragen.</p>
+    </details>
+    <details id="logbuch-nutzen">
+      <summary>Wie finde ich Einträge und sehe Bilder an?</summary>
+      <p>Öffne „Logbuch“ und wähle bei Bedarf einen Raum. Mit der Suche findest du Namen, Hausangaben
+        oder Bemerkungen. Wähle einen Zustand und bestätige mit „Filtern“.</p>
+      <p>Über „Ältere“ und „Neuere“ wechselst du die Seite. „Filter zurücksetzen“ zeigt wieder alle Einträge.
+        Mit „Bilder“ am Eintrag öffnest du die Fotos. Im Bildbetrachter kannst du mit den Pfeilen wechseln
+        und ihn über das Schließen-Symbol oder mit Esc schließen.</p>
+    </details>
+    <details id="qr-teilen">
+      <summary>Wie lade ich QR-Codes herunter oder teile einen Zugangslink?</summary>
+      <p>Mit Lesezugang findest du auf den Raumkarten und im Raumformular das QR-Code-Symbol.
+        Darüber lädst du das Raum-QR-PDF zum Ausdrucken herunter.</p>
+      <p>Über das Link-Symbol im Raumformular kopierst du einen Zugangslink. Die Bestätigung zeigt dir,
+        ob das Kopieren geklappt hat. Falls dein Browser das Kopieren blockiert, kannst du den angezeigten Link selbst kopieren.</p>
+      <p>Wer einen gültigen QR-Code oder Zugangslink erhält, kann alle Raumlogbücher und Bilder lesen.
+        Teile sie deshalb nur mit Personen, die diesen Zugang bekommen sollen.</p>
+    </details>
+    <details id="geraet">
+      <summary>Wie merke oder entferne ich meine Angaben?</summary>
+      <p>Ganz unten auf jeder Raumseite findest du „Name, Haus und Nummer auf diesem Gerät merken“.
+        Ist die Option eingeschaltet, werden diese Angaben schon beim Ausfüllen gespeichert und beim nächsten Mal eingesetzt.</p>
+      <p>Schalte die Option aus, um nichts mehr zu merken. Mit „Gespeicherte Eingaben entfernen“ löschst du
+        die gemerkten Angaben und leerst die persönlichen Felder im Formular. Dabei wird das Merken ebenfalls ausgeschaltet.</p>
+      <p>Der QR-Lesezugang bleibt davon unabhängig bestehen. Bereits gespeicherte Einträge werden dadurch nicht gelöscht.
+        Falls dein Browser das Merken nicht erlaubt, kannst du das Formular trotzdem ausfüllen und absenden.</p>
+    </details>
+    <details id="bilder">
+      <summary>Welche Bilder kann ich hinzufügen?</summary>
+      <p>Du kannst JPG-, PNG- und WebP-Bilder auswählen: maximal {{ limits.max_upload_images }} Bilder mit jeweils
+        {{ limits.max_upload_size_mb }} MB. Wähle nur Bilder aus, die für deine Meldung nötig sind.</p>
+      <p>Vor dem Speichern siehst du eine Vorschau und kannst einzelne Bilder über „Entfernen“ wieder abwählen.
+        Bei einer Fehlermeldung nach dem Absenden musst du die Bilder gegebenenfalls erneut auswählen.</p>
+    </details>
   </div>
+
+  <p class="muted">Welche Daten gespeichert werden und wer sie sehen kann, steht in den <a href="/datenschutz">Datenschutzhinweisen</a>.</p>
 
   {% if saved %}
     <p class="success-note" role="status">Danke, deine Nachricht wurde gespeichert.</p>
@@ -21,6 +65,8 @@
   {% include "_form_errors.html" %}
 
   <h2 id="nachricht">Nachricht senden</h2>
+  <p class="muted">Der Name ist optional. Für eine anonyme Nachricht kannst du einen vorgefüllten Namen entfernen.
+    Dein gespeichertes Raumprofil bleibt dabei unverändert.</p>
   <form method="post" action="/hilfe" data-submit-once data-help-form data-has-form-values="{% if form_values %}1{% else %}0{% endif %}">
     <label>
       Name · optional

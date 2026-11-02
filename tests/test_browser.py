@@ -13,7 +13,7 @@ from PIL import Image
 playwright = pytest.importorskip("playwright.sync_api")
 
 from app.main import app  # noqa: E402
-from tests.conftest import ADMIN, VALID  # noqa: E402
+from tests.conftest import ADMIN, VALID, admin_auth  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -49,7 +49,7 @@ def live_url(client):
 
 @pytest.fixture
 def page(browser, live_url):
-    context = browser.new_context(http_credentials={"username": ADMIN[0], "password": ADMIN[1]})
+    context = browser.new_context()
     page = context.new_page()
     page.set_default_timeout(5000)
     yield page
@@ -60,6 +60,14 @@ def fill_usage(page):
     page.locator('[name="person_name"]').fill("Browser Person")
     page.locator('[name="house_number"]').fill("12")
     page.get_by_text("Sauber", exact=True).click()
+
+
+def login_admin(page, base_url, target="/admin"):
+    page.goto(base_url + target)
+    page.get_by_label("Benutzername", exact=True).fill(ADMIN[0])
+    page.get_by_label("Passwort", exact=True).fill(ADMIN[1])
+    page.get_by_role("button", name="Anmelden", exact=True).click()
+    page.wait_for_url(base_url + target)
 
 
 def test_personal_data_saved_while_typing_and_can_be_removed(page, live_url, browser):
@@ -225,11 +233,11 @@ def test_viewer_keyboard_focus_and_screenreader_status(page, live_url, client):
 
 def test_admin_delete_form_confirmation_and_csrf_work_in_browser(page, live_url, client):
     client.post("/r/sauna/submit", data=VALID)
-    page.goto(live_url + "/admin/session/1")
+    login_admin(page, live_url, "/admin/session/1")
     page.once("dialog", lambda dialog: dialog.accept())
     page.get_by_role("button", name="Eintrag löschen", exact=True).click()
     page.wait_for_url(live_url + "/admin")
-    assert client.get("/admin/session/1", auth=ADMIN).status_code == 404
+    assert client.get("/admin/session/1", auth=admin_auth(client)).status_code == 404
 
 
 def test_room_qr_icon_downloads_directly_without_opening_room(page, live_url):

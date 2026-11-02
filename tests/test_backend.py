@@ -10,7 +10,7 @@ from fastapi import BackgroundTasks
 from app import db
 from app.routes import public
 from app.services import notifications
-from tests.conftest import ADMIN, VALID
+from tests.conftest import VALID, admin_auth
 
 
 @pytest.mark.parametrize("number", ["²", "１２", "١٢", "1a", "-1", "1.0", "", "1" * 9])
@@ -75,7 +75,7 @@ def test_extra_fields_and_qr_entry(client):
     )
     assert response.headers["location"] == "/thanks?raum=sauna"
     assert "Okay" in client.get("/r/sauna").text
-    assert "Problem" in client.get("/admin/session/1", auth=ADMIN).text
+    assert "Problem" in client.get("/admin/session/1", auth=admin_auth(client)).text
 
 
 def test_db_transactions_commit_rollback_close(client):
@@ -145,6 +145,7 @@ def test_legacy_schema_migration_is_additive(paths):
             2,
             3,
             4,
+            5,
         ]
         assert not conn.execute("PRAGMA foreign_key_check").fetchall()
     assert old_file.read_bytes() == b"unchanged"

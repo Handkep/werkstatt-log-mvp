@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from app.auth import csrf_token_for_request, issue_csrf_token, require_admin, require_admin_csrf
+from app.auth import csrf_token_for_request, require_admin, require_admin_csrf
 from app.capabilities import room_qr_url, rotate_all_reader_access
 from app.constants import WORKSHOP_CONDITIONS
 from app.db import (
@@ -95,7 +95,6 @@ def session_detail(request: Request, session_id: int):
         ),
     )
 
-    issue_csrf_token(request, response, csrf_token)
     return response
 
 
@@ -134,7 +133,6 @@ def room_access_management(request: Request):
         name="room_access_admin.html",
         context=page_context(request, "admin", "room_access", rooms=rooms, csrf_token=token),
     )
-    issue_csrf_token(request, response, token)
     return response
 
 
@@ -168,7 +166,7 @@ def admin_copy_access_link(room_id: int):
 
 @router.get("/admin/uploads/{filename}")
 def admin_uploaded_file(filename: str):
-    """Basic-Auth bleibt für Admin-Bilder im selben URL-Schutzbereich."""
+    """Sitzungsschutz gilt auch für Admin-Bilder."""
     return uploaded_file(filename)
 
 

@@ -63,9 +63,15 @@ Lizenz stehen unter [app/static/fonts](app/static/fonts/README.md).
 
 Die drei Hauptseiten heißen **Räume**, **Logbuch** und **Hilfe & Infos**. Sie stehen
 auch nach einem QR-Scan als gleich breite Tabs im Header. Im geöffneten Raum heißt
-der erste Tab **Alle Räume** und führt zurück zur Übersicht. Das Verwaltungsmenü
-rechts im Header enthält Einträge, Nachrichten und QR-Zugänge; sein Öffnen fordert
-keine Anmeldung an. Erst die gewählte Admin-Seite verwendet HTTP Basic.
+der erste Tab **Alle Räume** und führt zurück zur Übersicht. Der vorhandene Admin-Button
+rechts im Header führt direkt nach `/admin`, ohne Aufklappmenü. Ohne gültige Anmeldung
+erscheint zuerst die Anmeldeseite. Das Layout der öffentlichen Seiten bleibt unverändert.
+
+Die Verwaltung hat einen eigenen Kopfbereich mit **Verwaltung**, **Zur App**,
+Darstellungswechsel und **Abmelden** sowie die Navigation **Einträge · Nachrichten ·
+QR-Zugänge**. Die drei Bereiche bündeln ausschließlich die bisherigen Funktionen.
+Eintragsdetails und `/admin/logbuch` bleiben erreichbar; **Zur App** öffnet die
+öffentliche Raumübersicht.
 
 Unter dem Raumformular stehen die letzten drei nicht gelöschten Buchungen dieses
 Raums als kompakte Karten. **Alle Buchungen anzeigen** öffnet das raumgefilterte
@@ -131,7 +137,7 @@ Formulare zeigen feldbezogene Fehler mit fokussierter Zusammenfassung und erhalt
 werden. Die optionale Browserprüfung von Bildanzahl und Dateigröße ersetzt keine
 serverseitige Prüfung. Während einer Übermittlung verhindert die Oberfläche weitere
 Absendeversuche; dies ist keine serverseitige Idempotenzgarantie. Nach erfolgreichem
-Speichern folgt weiterhin eine 303-Weiterleitung. Es gibt keine Schemaänderung.
+Speichern folgt weiterhin eine 303-Weiterleitung. Die Nutzungsdaten bleiben unverändert.
 
 ## Zugriffsmodell
 
@@ -152,6 +158,8 @@ Speichern folgt weiterhin eine 303-Weiterleitung. Es gibt keine Schemaänderung.
 | `/rooms/latest-status` | geschützte JSON-Liste der letzten Zustandsmeldungen aktiver Räume |
 | `/admin/rooms/latest-status` | dieselben minimalen Zustandsdaten unter Admin-Authentifizierung |
 | `/admin` | gefilterte Verwaltungsübersicht, nur Admin |
+| `/admin/anmelden` | GET Anmeldeformular, POST Anmeldung mit CSRF und Same-Origin-Schutz |
+| `/admin/abmelden` | POST widerruft die aktuelle Admin-Sitzung mit CSRF-Schutz |
 | `/admin/session/{id}` | aktive Nutzung mit Bildern, nur Admin |
 | `/admin/session/{id}/delete` | POST mit Admin-Anmeldung und CSRF-Token |
 | `/uploads/{filename}` | globale Reader-Sitzung oder Admin, nur DB-Referenzen nicht gelöschter Nutzungen |
@@ -159,10 +167,37 @@ Speichern folgt weiterhin eine 303-Weiterleitung. Es gibt keine Schemaänderung.
 | `/admin/reader-access/rotate` | Admin-POST mit CSRF: alle QR-Zugänge und Reader-Sitzungen erneuern |
 | `/datenschutz` | öffentliche Hinweise zum tatsächlichen Verhalten |
 
-HTTP Basic Auth verwendet `ADMIN_USERNAME` und `ADMIN_PASSWORD`. Fehlen diese,
-bleiben Admin-Routen gesperrt (503); globale Reader-Sitzungen sind unabhängig davon möglich.
-Ohne gültigen Reader-Zugang: 403 ohne `WWW-Authenticate`, unabhängig
-davon, ob eine Bilddatei existiert. Ein Basic-Login-Dialog erscheint ausschließlich im expliziten Admin-Bereich. Mit Lesefreigabe oder Admin-Anmeldung: einheitlich 404 für fehlende,
+Die Formularanmeldung verwendet weiterhin `ADMIN_USERNAME` und `ADMIN_PASSWORD`.
+Fehlen diese, bleiben Admin-Routen gesperrt (503); globale Reader-Sitzungen sind
+unabhängig davon möglich. HTTP Basic wird vollständig ignoriert und löst keinen
+Browserdialog aus. Bei einem nicht angemeldeten HTML-Aufruf einer Verwaltungsseite
+folgt eine 303-Weiterleitung zur Anmeldung; Daten-, Bild-, PDF- und nicht angemeldete
+POST-Anfragen liefern 401. Vorhandene Integrationen müssen Basic-Header durch die
+Formularanmeldung und Sitzungscookies ersetzen. Interne Verwaltungsziele einschließlich
+Query-Filter bleiben nach dem Login erhalten; externe Ziele sind ausgeschlossen.
+
+Das Host-only-Cookie `raumlog_admin` enthält eine zufällige 256-Bit-Kennung:
+`HttpOnly; SameSite=Strict; Path=/`, unter HTTPS zusätzlich `Secure`. Es hat kein
+persistentes Browser-Ablaufdatum. Die serverseitige, absolute Laufzeit beträgt acht
+Stunden und wird beim Lesen nicht verlängert. Browser können Sitzungscookies bei der
+Wiederherstellung dennoch behalten; maßgeblich bleiben serverseitiger Ablauf und Logout.
+Migration 5 legt dafür nur `admin_sessions` mit SHA-256-Hash, einer an die konfigurierten
+Zugangsdaten gebundenen HMAC-Kennung und Ablaufzeit an. Nutzungsdaten werden nicht verändert.
+Neue Logins rotieren die Kennung des aktuellen Browsers; abgelaufene Zeilen werden beim
+Login entfernt. Die Sitzung überlebt einen Serverneustart innerhalb ihrer Laufzeit und
+ist workerübergreifend verfügbar. Änderungen an Benutzername oder Passwort widerrufen
+bestehende Admin-Sitzungen.
+
+**Abmelden** löscht die aktuelle Sitzungszeile und beide Admin-/CSRF-Cookies. Eine
+wiederverwendete alte Kennung gewährt keinen Zugang. Andere Browseranmeldungen,
+Reader-Cookies, gespeicherte Formularangaben und Darstellung bleiben unabhängig erhalten.
+Loginversuche verwenden einen eigenen Rate-Limit-Bereich mit den vorhandenen
+`RATE_LIMIT_*`-Grenzen; öffentliche Formularbudgets werden dadurch nicht verbraucht.
+Die Anmeldeseite speichert Passwörter weder im HTML noch in Protokollen. Benutzername
+und Passwort sind auf 256 beziehungsweise 4096 Zeichen begrenzt.
+
+Ohne gültigen Reader-Zugang: 403 ohne `WWW-Authenticate`, unabhängig davon, ob eine
+Bilddatei existiert. Mit Lesefreigabe oder Admin-Anmeldung: einheitlich 404 für fehlende,
 gelöschte oder anderweitig nicht zugängliche Bilder/Einträge. Alle dynamischen
 Antworten einschließlich Validierungsfehlern tragen `Cache-Control: private, no-store`.
 Bereits früher heruntergeladene Dateien oder alte Browser-/Proxy-Caches können damit
@@ -170,7 +205,7 @@ nicht rückwirkend entfernt werden; vorhandene Proxy-Caches beim Umstieg leeren.
 Uploads niemals separat als statisches Verzeichnis im Proxy freigeben.
 
 Zustandsändernde Admin-Routen prüfen routerweit ein signiertes, höchstens eine
-Stunde gültiges Double-Submit-Token im Formular und Host-only-Cookie. Cookies sind
+Stunde gültiges, an die jeweilige Admin-Sitzung gebundenes Double-Submit-Token im Formular und Host-only-Cookie. Vor der Anmeldung gilt ein getrennt signiertes Login-Token. Cookies sind
 HttpOnly, SameSite=Strict und unter HTTPS Secure. Der Signaturschlüssel wird aus den
 Admin-Zugangsdaten abgeleitet und ist workerübergreifend gleich; ein Passwortwechsel
 widerruft Tokens. Lange, geheime Zugangsdaten und HTTPS sind erforderlich.
@@ -180,7 +215,7 @@ widerruft Tokens. Lange, geheime Zugangsdaten und HTTPS sind erforderlich.
 | Variable | Standard | Bedeutung |
 | --- | --- | --- |
 | `DATA_DIR` | `./data` im Repository | DB und Uploads; im Container `/data` |
-| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | leer | Zugang für alle geschützten Daten |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | leer | bestehende Zugangsdaten für die Verwaltungsanmeldung |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | erlaubte Hostnamen/IPs, kommasepariert, ohne Port |
 | `PUBLIC_BASE_URL` | leer; Compose `http://localhost:9000` | explizite vertrauenswürdige Basis für QR-Links; kein Host-Header-Fallback |
 | `QR_MASTER_KEY` | leer | einmalig kryptografisch zufällig erzeugter 256-Bit-Schlüssel als 64 Hex-Zeichen |
@@ -349,7 +384,7 @@ bei vorhandenen Datenbanken ungenutzt erhalten; neue Datenbanken benötigen sie 
 Token-Tausch und öffentliche Formular-POSTs verlangen weiterhin eine passende Origin
 oder bestätigte Same-Origin-Fetch-Metadaten; Admin-Änderungen das signierte CSRF-Token.
 Der geheime Zugangslink wird nur nach einem bewussten POST ausgegeben, nicht vorab
-ins HTML eingebettet. Reader-Endpunkte senden bei fehlendem Zugang keinen Basic-Dialog.
+ins HTML eingebettet. Kein Endpunkt fordert einen Basic-Dialog an.
 Admin-Ansichten verwenden für Bilder/PDFs eigene `/admin/...`-Adressen mit derselben
 bestehenden Admin-Authentifizierung, ohne eine zusätzliche Reader-Sitzung vorauszusetzen.
 
@@ -387,7 +422,19 @@ Der Viewer unterstützt Tab/Shift+Tab, Pfeiltasten, Escape und Fokuswiederherste
 der Seiteninhalt ist währenddessen inert. Asset-Hashes und Revalidierung der importierten
 Stylesheets verhindern veraltete Assets. Das bestehende Layout bleibt erhalten.
 
-Die Datenschutzhinweise beschreiben die technische Umsetzung. Der Betreiber muss
+Die Seite `/datenschutz` fasst Datenarten und Zwecke, Sichtbarkeit und Weitergabe,
+Browser-Speicherung, Bilder, Aufbewahrung und Kontakt in offen lesbaren Abschnitten
+zusammen. Die angezeigte Reader-Laufzeit stammt aus `READER_SESSION_DAYS`.
+Bedienung und praktische Fragen stehen unter `/hilfe`; `/hilfe#qr-zugang`,
+`/hilfe#geraet` und `/hilfe#nachricht` führen direkt zum jeweiligen Thema.
+Interne technische Einzelheiten bleiben in dieser Dokumentation: Raumtokens werden
+gegen eine Reader-Sitzung getauscht und aus der Adresszeile entfernt. Die Datenbank
+speichert die Sitzungskennung gehasht, Ablaufzeit und Berechtigungsversion. Geschützte
+Ansichten und QR-PDFs erhalten Anweisungen gegen Browser- und Proxy-Caching.
+Die IP-abgeleitete Kennung für den Spamschutz wird mit einem geheimen Schlüssel erzeugt;
+das Ablaufen und Entfernen der Zähler ersetzt keine Aufbewahrungsregel für Serverprotokolle.
+
+Der Betreiber muss weiterhin
 Verantwortlichen, Kontakt, Rechtsgrundlage und konkrete Aufbewahrungsfristen für
 App, E-Mail, Backups und gegebenenfalls Serverprotokolle ergänzen.
 

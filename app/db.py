@@ -369,6 +369,11 @@ def init_db() -> None:
             )
         conn.execute("INSERT OR IGNORE INTO app_state VALUES ('reader_access_version', '1')")
         conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (4)")
+        conn.execute("""CREATE TABLE IF NOT EXISTS admin_sessions (
+            id_hash TEXT PRIMARY KEY, credential_id TEXT NOT NULL, expires_at INTEGER NOT NULL
+        )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_admin_expiry ON admin_sessions(expires_at)")
+        conn.execute("INSERT OR IGNORE INTO schema_migrations VALUES (5)")
         seed_default_rooms(conn)
 
 

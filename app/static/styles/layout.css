@@ -25,6 +25,32 @@
   line-height: 1.6;
 }
 
+.privacy-sections {
+  display: grid;
+  gap: 28px;
+  margin-top: 28px;
+}
+
+.privacy-sections h2 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+
+.privacy-sections p {
+  margin: 0;
+  color: var(--soft-text);
+  line-height: 1.65;
+}
+
+.privacy-sections p + p {
+  margin-top: 10px;
+}
+
+.privacy-operator-note {
+  font-size: 0.9rem;
+}
+
 .eyebrow {
   color: var(--muted);
   font-weight: 700;
@@ -45,6 +71,12 @@
   cursor: pointer;
   font-weight: 650;
   line-height: 1.45;
+}
+
+.help-topics summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .help-topics details p {
@@ -135,47 +167,50 @@
   color: var(--primary-text);
 }
 
-.admin-menu {
-  position: relative;
-  color: var(--muted);
+.admin-header .site-header-actions {
+  gap: 16px;
 }
 
-.admin-menu-toggle {
-  list-style: none;
-}
-
-.admin-menu-toggle::-webkit-details-marker {
-  display: none;
-}
-
-.admin-menu-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 30;
-  display: grid;
-  width: min(240px, calc(100vw - 20px));
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--control-bg);
-  box-shadow: 0 12px 30px var(--shadow);
-}
-
-.admin-menu-panel a {
-  display: flex;
+.admin-header-link {
+  display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 10px 12px;
-  border-radius: 8px;
+  width: auto;
+  padding: 8px 4px;
+  border: 0;
+  background: transparent;
   color: var(--soft-text);
+  font-weight: 650;
   text-decoration: none;
 }
 
-.admin-menu-panel a:hover,
-.admin-menu-panel a[aria-current] {
-  background: var(--card-bg);
+.admin-header-link:hover {
   color: var(--text);
+  text-decoration: underline;
+}
+
+.admin-header-link:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.admin-logout {
+  display: block;
+  margin: 0;
+}
+
+.admin-login {
+  max-width: 480px;
+  margin-inline: auto;
+}
+
+@media (max-width: 640px) {
+  .admin-header .site-header-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+  }
 }
 
 .site-footer {

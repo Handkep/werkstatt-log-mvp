@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Nachrichten{% endblock %}
+{% block title %}Verwaltung · Nachrichten{% endblock %}
 {% block content %}
 <section class="card">
   <h1>Nachrichten</h1>
   {% if entries %}
-    <h2>Letzte Nachrichten</h2>
     <div class="note-list">
       {% for entry in entries %}
         <article class="note-entry">
@@ -20,6 +19,5 @@
     <p>Noch keine Nachrichten.</p>
   {% endif %}
 
-  <p><a href="/admin">Zur Admin-Übersicht</a></p>
 </section>
 {% endblock %}

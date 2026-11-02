@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
-from app.auth import request_is_admin
+from app.auth import ADMIN_SESSION_SECONDS, csrf_token_for_request, request_is_admin
 from app.config import BASE_DIR, LIMITS, SITE_TITLE
 from app.constants import FUNNY_NAME_EXAMPLES, NAV_GROUPS
 
@@ -87,7 +87,12 @@ def page_context(request: Request, nav_section: str, nav_current: str, **kwargs)
     """Baut den gemeinsamen Template-Kontext für alle Seiten."""
 
     admin_authenticated = request_is_admin(request)
+    if request.url.path == "/admin/logbuch":
+        nav_section, nav_current = "admin", "admin"
     navigation = build_nav(nav_section, nav_current)
+    if nav_section in {"admin", "admin_login"}:
+        kwargs.setdefault("csrf_token", csrf_token_for_request(request))
+        request.state.admin_csrf_cookie = kwargs["csrf_token"]
     for item in navigation["nav_items"]:
         if item["id"] == "logbook" and admin_authenticated:
             item["href"] = "/admin/logbuch"
@@ -102,6 +107,7 @@ def page_context(request: Request, nav_section: str, nav_current: str, **kwargs)
         "asset_version": ASSET_VERSION,
         "csp_nonce": getattr(request.state, "csp_nonce", ""),
         "limits": LIMITS,
+        "admin_session_hours": ADMIN_SESSION_SECONDS // 3600,
         **navigation,
         **kwargs,
     }

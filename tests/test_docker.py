@@ -1,18 +1,19 @@
 """Opt-in-Containerregressionen; ausschließlich mit temporären Testdaten."""
 
-import base64
 import io
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
 import time
 from contextlib import closing
+from http.cookiejar import CookieJar
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 from uuid import uuid4
 
 import pytest
@@ -181,11 +182,21 @@ def test_container_writes_host_owned_data_and_survives_restart(paths, existing_d
             urlopen(base_url + "/uploads/" + filename, timeout=5)
         assert error.value.code == 403
         error.value.close()
-        authorization = "Basic " + base64.b64encode(":".join(ADMIN).encode()).decode()
-        with urlopen(
-            Request(base_url + "/uploads/" + filename, headers={"Authorization": authorization}),
+        opener = build_opener(HTTPCookieProcessor(CookieJar()))
+        with opener.open(base_url + "/admin/anmelden", timeout=5) as response:
+            csrf = re.search(r'name="csrf_token" value="([^"]+)"', response.read().decode())[1]
+        with opener.open(
+            Request(
+                base_url + "/admin/anmelden",
+                data=urlencode(
+                    {"username": ADMIN[0], "password": ADMIN[1], "csrf_token": csrf}
+                ).encode(),
+                headers={"Origin": base_url},
+            ),
             timeout=5,
         ) as response:
+            assert response.status == 200
+        with opener.open(base_url + "/uploads/" + filename, timeout=5) as response:
             with Image.open(io.BytesIO(response.read())) as image:
                 image.load()
                 assert image.size == (24, 24)
@@ -193,6 +204,8 @@ def test_container_writes_host_owned_data_and_survives_restart(paths, existing_d
         # Docker kann einen automatisch vergebenen Host-Port beim Neustart ändern.
         base_url = "http://" + docker("port", container, "8000/tcp")
         wait_for_start(container, base_url)
+        with opener.open(base_url + "/admin", timeout=5) as response:
+            assert response.status == 200 and response.url.endswith("/admin")
         with closing(sqlite3.connect(data_dir / "app.db")) as conn:
             assert conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
             assert conn.execute("SELECT count(*) FROM usage_sessions").fetchone()[0] == 1

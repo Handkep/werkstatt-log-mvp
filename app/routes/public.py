@@ -36,6 +36,7 @@ from app.config import (
     MAX_HOUSE_NUMBER_LENGTH,
     MAX_NAME_LENGTH,
     MAX_UPLOAD_STORAGE_BYTES,
+    READER_SESSION_SECONDS,
     UPLOAD_DIR,
     logger,
 )
@@ -510,7 +511,11 @@ def privacy(request: Request):
     """Datenschutzseite."""
 
     return templates.TemplateResponse(
-        request=request, name="privacy.html", context=page_context(request, "meta", "privacy")
+        request=request,
+        name="privacy.html",
+        context=page_context(
+            request, "meta", "privacy", reader_session_days=READER_SESSION_SECONDS // 86400
+        ),
     )
 
 

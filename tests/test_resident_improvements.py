@@ -8,7 +8,7 @@ import pytest
 
 from app import db, middleware
 from tests import test_capabilities as access
-from tests.conftest import ADMIN, VALID
+from tests.conftest import VALID, admin_auth
 
 reader_client = access.reader_client
 clock = access.clock
@@ -100,11 +100,11 @@ def test_status_race_never_delivers_private_body(reader_client, monkeypatch):
 
 def test_status_admin_scope(reader_client):
     assert reader_client.get("/admin/rooms/latest-status").status_code == 401
-    response = reader_client.get("/admin/rooms/latest-status", auth=ADMIN)
+    response = reader_client.get("/admin/rooms/latest-status", auth=admin_auth(reader_client))
     assert response.status_code == 200
     assert (
         'data-room-status-url="/admin/rooms/latest-status"'
-        in reader_client.get("/", auth=ADMIN).text
+        in reader_client.get("/", auth=admin_auth(reader_client)).text
     )
 
 

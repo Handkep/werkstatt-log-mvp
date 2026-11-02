@@ -1,11 +1,10 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-{% block title %}Admin{% endblock %}
+{% block title %}Verwaltung · Einträge{% endblock %}
 
 {% block content %}
 <section class="card wide">
-  <h1>Raum-Nutzung</h1>
-  <p><a href="/admin/raumzugaenge">Raumzugänge und QR-Codes verwalten</a></p>
+  <h1>Einträge</h1>
   <p class="muted">Alle Einträge im gleichen Überblick, mit direktem Sprung in die Details.</p>
 
   <form class="admin-filter-form" method="get" action="/admin" aria-label="Admin-Filter">

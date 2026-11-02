@@ -27,9 +27,7 @@
 }
 
 .icon-button:hover,
-.icon-button:active,
-.admin-menu[open] .icon-button,
-.admin-menu.is-current .icon-button {
+.icon-button:active {
   background: transparent;
   color: var(--text);
   transform: none;
@@ -76,11 +74,6 @@
 .icon-button[data-tooltip]:focus-visible::after {
   opacity: 1;
   visibility: visible;
-}
-
-.admin-menu[open] .icon-button[data-tooltip]::after {
-  opacity: 0;
-  visibility: hidden;
 }
 
 .icon-button.is-copied,

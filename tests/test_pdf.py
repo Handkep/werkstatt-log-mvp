@@ -3,7 +3,7 @@ import pytest
 from app.capabilities import room_qr_url
 from app.services import pdf
 from app.utils import configured_public_base_url
-from tests.conftest import ADMIN
+from tests.conftest import admin_auth
 
 
 def test_pdf_and_dynamic_room_text(client, monkeypatch):
@@ -15,12 +15,12 @@ def test_pdf_and_dynamic_room_text(client, monkeypatch):
         return original(*args, **kwargs)
 
     monkeypatch.setattr(pdf, "draw_paragraph", record)
-    response = client.get("/r/sauna/qr.pdf", auth=ADMIN)
+    response = client.get("/r/sauna/qr.pdf", auth=admin_auth(client))
     assert response.status_code == 200
     assert response.content.startswith(b"%PDF-")
     assert response.headers["content-type"] == "application/pdf"
     assert "Sauna" in texts[0] and "Werkstatt" not in texts[0]
-    assert client.get("/r/missing/qr.pdf", auth=ADMIN).status_code == 404
+    assert client.get("/r/missing/qr.pdf", auth=admin_auth(client)).status_code == 404
 
 
 @pytest.mark.parametrize(

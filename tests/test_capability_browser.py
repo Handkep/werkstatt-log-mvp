@@ -153,14 +153,10 @@ def test_global_session_and_global_rotation_in_browser(reader_page, secure_url, 
 
 
 def test_admin_can_bootstrap_pdf_without_reader_session(browser, secure_url):
-    from tests.conftest import ADMIN
-
-    context = browser.new_context(
-        ignore_https_errors=True, http_credentials={"username": ADMIN[0], "password": ADMIN[1]}
-    )
+    context = browser.new_context(ignore_https_errors=True)
     try:
         page = context.new_page()
-        page.goto(secure_url + "/admin/raumzugaenge")
+        test_browser.login_admin(page, secure_url, "/admin/raumzugaenge")
         with page.expect_download() as download:
             page.get_by_role("link", name="QR-PDF herunterladen", exact=True).first.click()
         assert download.value.suggested_filename == "zelter5-qr-werkstatt.pdf"
@@ -254,18 +250,14 @@ def test_cookie_restored_after_browser_restart(browser, reader_page, secure_url)
 
 
 def test_admin_images_work_without_reader_cookie(browser, secure_url, client):
-    from tests.conftest import ADMIN
-
     output = io.BytesIO()
     with Image.new("RGB", (12, 12), "red") as image:
         image.save(output, "PNG")
     client.post("/r/sauna/submit", data=VALID, files={"images": ("test.png", output.getvalue())})
-    context = browser.new_context(
-        ignore_https_errors=True, http_credentials={"username": ADMIN[0], "password": ADMIN[1]}
-    )
+    context = browser.new_context(ignore_https_errors=True)
     try:
         page = context.new_page()
-        page.goto(secure_url + "/admin")
+        test_browser.login_admin(page, secure_url)
         page.locator("[data-viewer-images]").first.click()
         page.wait_for_function(
             "() => document.querySelector('[data-viewer-image]').naturalWidth === 12"
@@ -312,19 +304,13 @@ def test_navigation_and_preview_layout(reader_page, secure_url, client, width, t
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     requests = []
     page.on("request", lambda request: requests.append(request.url))
-    toggle = page.locator("[data-admin-menu] summary")
-    toggle.click()
-    menu = page.get_by_role("navigation", name="Verwaltung", exact=True)
-    assert menu.get_by_role("link").count() == 3
-    assert menu.is_visible()
-    assert not any("/admin" in url for url in requests)
-    page.keyboard.press("Escape")
-    assert not menu.is_visible()
-    assert toggle.evaluate("el => document.activeElement === el")
-    toggle.press("Enter")
-    assert menu.is_visible()
-    page.mouse.click(2, 2)
-    assert not menu.is_visible()
+    entry = page.get_by_role("link", name="Verwaltung", exact=True)
+    assert entry.get_attribute("href") == "/admin"
+    entry.press("Enter")
+    page.get_by_label("Benutzername", exact=True).wait_for()
+    assert "/admin/anmelden?" in page.url
+    assert any("/admin" in url for url in requests)
+    page.goto(secure_url + "/r/werkstatt")
     page.screenshot(path=f"/tmp/raumlog-navigation-{width}-{theme}.png", full_page=True)
     page.get_by_role("link", name="Alle Buchungen anzeigen", exact=True).click()
     assert page.url.endswith("/logbuch?raum=werkstatt")

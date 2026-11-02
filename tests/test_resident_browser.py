@@ -42,6 +42,25 @@ def test_denied_logbook_and_help_anchor(page, live_url):
     assert page.get_by_text("Scanne einen aktuellen Raum-QR-Code", exact=False).is_visible()
 
 
+def test_privacy_help_links_and_keyboard_topics(page, live_url):
+    page.goto(live_url + "/datenschutz")
+    page.get_by_role("link", name="Hilfe zur Speicheroption", exact=True).click()
+    page.wait_for_url("**/hilfe#geraet")
+    page.wait_for_function("() => document.getElementById('geraet').open")
+    summary = page.locator("#geraet > summary")
+    summary.focus()
+    assert summary.evaluate("el => getComputedStyle(el).outlineStyle") == "solid"
+    page.keyboard.press("Space")
+    assert not page.locator("#geraet").evaluate("el => el.open")
+    page.keyboard.press("Enter")
+    assert page.locator("#geraet").evaluate("el => el.open")
+    page.get_by_role("link", name="Datenschutzhinweisen", exact=True).click()
+    page.wait_for_url("**/datenschutz")
+    page.get_by_role("link", name="Nachricht senden", exact=True).click()
+    page.wait_for_url("**/hilfe#nachricht")
+    assert page.get_by_role("textbox", name="Nachricht", exact=True).is_visible()
+
+
 def test_logbook_search_and_paging_in_browser(page, live_url):
     add_entries(25, condition="Problem/Defekt", remark="Bohrer klemmt")
     add_entries(1, "sauna", remark="Sauna gereinigt")
@@ -138,15 +157,27 @@ def test_responsive_resident_views(page, live_url, width, theme, tmp_path):
     page.evaluate("localStorage.setItem('theme', '" + theme + "')")
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
-    for path in ("/", "/r/werkstatt", "/hilfe", "/logbuch", "/thanks?raum=werkstatt"):
+    for path in (
+        "/",
+        "/r/werkstatt",
+        "/hilfe#geraet",
+        "/datenschutz",
+        "/logbuch",
+        "/thanks?raum=werkstatt",
+    ):
         page.goto(live_url + path)
         page.wait_for_function(
             '() => !document.querySelector(\'[data-room-status][aria-busy="true"], [data-room-bookings][aria-busy="true"]\')'
         )
         assert page.locator("html").get_attribute("data-theme") == theme
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-        if path in ("/", "/r/werkstatt"):
-            label = "rooms" if path == "/" else "form"
+        if path in ("/", "/r/werkstatt", "/hilfe#geraet", "/datenschutz"):
+            label = {
+                "/": "rooms",
+                "/r/werkstatt": "form",
+                "/hilfe#geraet": "help",
+                "/datenschutz": "privacy",
+            }[path]
             page.screenshot(
                 path=str(tmp_path / f"{label}-{width}-{theme}.png"),
                 full_page=True,
@@ -168,6 +199,10 @@ def test_responsive_resident_views(page, live_url, width, theme, tmp_path):
             )
         else:
             assert page.locator("footer .room-footer").count() == 0
+        if path == "/datenschutz":
+            assert page.locator(".privacy-page").bounding_box()["width"] <= 760
+        if path == "/hilfe#geraet":
+            assert page.locator("#geraet").evaluate("el => el.open")
     assert errors == []
 
 
@@ -177,7 +212,7 @@ def test_admin_filters_fit_and_remain_usable(page, live_url, width, theme, tmp_p
     page.set_viewport_size({"width": width, "height": 900})
     page.emulate_media(reduced_motion="reduce")
     page.add_init_script(f"localStorage.setItem('theme', '{theme}')")
-    page.goto(live_url + "/admin")
+    test_browser.login_admin(page, live_url)
     page.get_by_label("Suche", exact=True).fill("Eine lange Suche nach einer Nutzung")
     page.get_by_role("combobox", name="Raum", exact=True).select_option("werkstatt")
     page.get_by_role("combobox", name="Zustand", exact=True).select_option("Problem/Defekt")

@@ -6,10 +6,20 @@ import pytest
 
 from app import db
 from tests import test_capabilities
-from tests.conftest import ADMIN, VALID
+from tests.conftest import VALID, admin_auth
 
 reader_client = test_capabilities.reader_client
 clock = test_capabilities.clock
+
+
+@pytest.mark.parametrize("days", [1, 30, 365])
+def test_privacy_displays_configured_reader_lifetime(client, monkeypatch, days):
+    monkeypatch.setattr("app.routes.public.READER_SESSION_SECONDS", days * 86400)
+    response = client.get("/datenschutz")
+    assert response.status_code == 200
+    assert f"{days} Tag{'e' if days != 1 else ''}</strong>" in response.text
+    if days != 365:
+        assert "365 Tage" not in response.text
 
 
 class MainNavigation(HTMLParser):
@@ -56,15 +66,15 @@ def test_three_equal_main_pages(reader_client, path, first, current):
         ["/hilfe", "Hilfe & Infos"],
     ]
     assert [index for index, link in enumerate(links) if link[2] == "page"] == [current]
-    assert "data-admin-menu" in response.text
-    assert 'href="/admin/nachrichten"' in response.text
-    assert 'href="/admin/raumzugaenge"' in response.text
+    assert 'class="icon-button admin-entry" href="/admin"' in response.text
+    assert "data-admin-menu" not in response.text
+    assert 'href="/admin/nachrichten"' not in response.text
 
 
 @pytest.mark.parametrize("path", ["/letzte-buchungen", "/anmerkungen", "/admin/anmerkungen"])
 def test_old_urls_removed_without_redirect(client, path):
     for method in (client.get, client.post):
-        response = method(path, auth=ADMIN, follow_redirects=False)
+        response = method(path, auth=admin_auth(client), follow_redirects=False)
         assert response.status_code == 404
         assert "location" not in response.headers
 
@@ -75,7 +85,7 @@ def test_help_submission_and_private_messages(client):
     assert response.headers["location"] == "/hilfe?gespeichert=1"
     assert "PRIVATE-HELP-MESSAGE" not in client.get("/hilfe?gespeichert=1").text
     assert client.get("/admin/nachrichten").status_code == 401
-    assert "PRIVATE-HELP-MESSAGE" in client.get("/admin/nachrichten", auth=ADMIN).text
+    assert "PRIVATE-HELP-MESSAGE" in client.get("/admin/nachrichten", auth=admin_auth(client)).text
     assert (
         client.post(
             "/hilfe", data={"note": "forged"}, headers={"Origin": "https://evil.example"}
@@ -147,16 +157,21 @@ def test_preview_renews_only_authorized_success(reader_client, clock):
     assert denied.status_code == 403 and "set-cookie" not in denied.headers
 
 
-def test_admin_preview_and_logbook_stay_in_basic_auth_scope(reader_client):
+def test_admin_preview_and_logbook_require_admin_session(reader_client):
     room = test_capabilities.room()
     preview = f"/admin/rooms/{room['id']}/recent-bookings"
     test_capabilities.grant(reader_client)
     assert reader_client.get(preview).status_code == 401
-    response = reader_client.get(preview, auth=ADMIN)
+    response = reader_client.get(preview, auth=admin_auth(reader_client))
     assert response.status_code == 200
-    shell = reader_client.get("/r/sauna", auth=ADMIN)
+    shell = reader_client.get("/r/sauna", auth=admin_auth(reader_client))
     assert f'data-room-bookings="{preview}"' in shell.text
     assert 'data-viewer-upload-base="/admin/uploads/"' in shell.text
-    assert reader_client.get("/admin/rooms/999/recent-bookings", auth=ADMIN).status_code == 404
-    logbook = reader_client.get("/admin/logbuch", auth=ADMIN)
+    assert (
+        reader_client.get(
+            "/admin/rooms/999/recent-bookings", auth=admin_auth(reader_client)
+        ).status_code
+        == 404
+    )
+    logbook = reader_client.get("/admin/logbuch", auth=admin_auth(reader_client))
     assert 'href="/admin/logbuch?raum=sauna"' in logbook.text

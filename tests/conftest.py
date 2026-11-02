@@ -2,9 +2,11 @@
 
 import atexit
 import os
+import re
 import secrets
 import tempfile
 
+import httpx2 as httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -34,6 +36,41 @@ VALID = dict(
     condition="Sauber",
     remark="Alles gut",
 )
+
+
+class AdminSessionAuth(httpx.Auth):
+    """Per Anfrage anmelden, ohne anonyme Assertions desselben Clients zu verändern."""
+
+    def __init__(self, raw):
+        self.raw = raw
+
+    def auth_flow(self, request):
+        existing = request.headers.get("cookie", "")
+        request.headers["cookie"] = (
+            (existing + "; " if existing else "") + "raumlog_admin=" + self.raw
+        )
+        yield request
+
+
+def admin_auth(client):
+    """Echte Formularanmeldung; Sitzung für diesen isolierten Test wiederverwenden."""
+    if not hasattr(client, "admin_session_auth"):
+        login = TestClient(
+            app, base_url=client.base_url, headers={"Origin": str(client.base_url).rstrip("/")}
+        )
+        try:
+            page = login.get("/admin/anmelden")
+            token = re.search(r'name="csrf_token" value="([^"]+)"', page.text)[1]
+            response = login.post(
+                "/admin/anmelden",
+                data={"username": ADMIN[0], "password": ADMIN[1], "csrf_token": token},
+                follow_redirects=False,
+            )
+            assert response.status_code == 303
+            client.admin_session_auth = AdminSessionAuth(login.cookies.get("raumlog_admin"))
+        finally:
+            login.close()
+    return client.admin_session_auth
 
 
 @pytest.fixture

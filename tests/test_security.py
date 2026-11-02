@@ -1,13 +1,14 @@
+import hashlib
 import re
 
 import pytest
 
 from app import auth, db
-from tests.conftest import ADMIN, VALID
+from tests.conftest import VALID, admin_auth
 
 
 def csrf(client, session_id=1):
-    response = client.get(f"/admin/session/{session_id}", auth=ADMIN)
+    response = client.get(f"/admin/session/{session_id}", auth=admin_auth(client))
     assert response.status_code == 200
     return re.search(r'name="csrf_token" value="([^"]+)"', response.text)[1]
 
@@ -33,7 +34,7 @@ def test_protected_endpoints(client, path):
     expected = 401 if path.startswith("/admin") else 403
     assert client.get(path).status_code == expected
     assert client.get(path, auth=("wrong", "wrong")).status_code == expected
-    response = client.get(path, auth=ADMIN)
+    response = client.get(path, auth=admin_auth(client))
     assert response.status_code in {200, 404}
     assert "no-store" in response.headers["cache-control"]
 
@@ -56,7 +57,7 @@ def test_no_public_notes_or_usage_leak(client):
         assert "SECRET-NAME" not in response.text
         assert payload not in response.text
     for url in ["/logbuch", "/admin", "/admin/nachrichten", "/admin/session/1"]:
-        response = client.get(url, auth=ADMIN)
+        response = client.get(url, auth=admin_auth(client))
         assert payload not in response.text
         assert "&lt;script&gt;" in response.text
 
@@ -80,7 +81,10 @@ def test_csrf_attempts(client, monkeypatch, attack):
     if attack == "future":
         monkeypatch.setattr(auth.time, "time", lambda: int(token.split(".")[0]) - 1)
     response = client.post(
-        "/admin/session/1/delete", auth=ADMIN, data=data, headers={"Origin": "https://evil.example"}
+        "/admin/session/1/delete",
+        auth=admin_auth(client),
+        data=data,
+        headers={"Origin": "https://evil.example"},
     )
     assert response.status_code == 403
     with db.db_connect() as conn:
@@ -91,15 +95,20 @@ def test_valid_csrf_and_soft_delete(client):
     client.post("/r/werkstatt/submit", data=VALID)
     token = csrf(client)
     response = client.post(
-        "/admin/session/1/delete", auth=ADMIN, data={"csrf_token": token}, follow_redirects=False
+        "/admin/session/1/delete",
+        auth=admin_auth(client),
+        data={"csrf_token": token},
+        follow_redirects=False,
     )
     assert response.status_code == 303
-    assert client.get("/admin/session/1", auth=ADMIN).status_code == 404
-    assert "Test Person" not in client.get("/logbuch", auth=ADMIN).text
+    assert client.get("/admin/session/1", auth=admin_auth(client)).status_code == 404
+    assert "Test Person" not in client.get("/logbuch", auth=admin_auth(client)).text
     with db.db_connect() as conn:
         assert conn.execute("SELECT deleted_at FROM usage_sessions").fetchone()[0]
     assert (
-        client.post("/admin/session/1/delete", auth=ADMIN, data={"csrf_token": token}).status_code
+        client.post(
+            "/admin/session/1/delete", auth=admin_auth(client), data={"csrf_token": token}
+        ).status_code
         == 404
     )
 
@@ -107,9 +116,10 @@ def test_valid_csrf_and_soft_delete(client):
 def test_csrf_credential_rotation_and_cookie_attributes(client, monkeypatch):
     client.post("/r/werkstatt/submit", data=VALID)
     token = csrf(client)
-    assert auth.valid_csrf_token(token)
+    binding = hashlib.sha256(admin_auth(client).raw.encode()).hexdigest()
+    assert auth.valid_csrf_token(token, binding)
     monkeypatch.setenv("ADMIN_PASSWORD", "rotated")
-    assert not auth.valid_csrf_token(token)
+    assert not auth.valid_csrf_token(token, binding)
 
 
 def test_hosts_headers_and_asset_cache(client):
@@ -124,7 +134,7 @@ def test_hosts_headers_and_asset_cache(client):
 
 def test_csrf_cookie_https_and_nonce_csp(client):
     client.post("/r/werkstatt/submit", data=VALID)
-    response = client.get("https://testserver/admin/session/1", auth=ADMIN)
+    response = client.get("https://testserver/admin/session/1", auth=admin_auth(client))
     cookie = response.headers["set-cookie"].lower()
     assert "secure" in cookie and "httponly" in cookie and "samesite=strict" in cookie
     assert "domain=" not in cookie

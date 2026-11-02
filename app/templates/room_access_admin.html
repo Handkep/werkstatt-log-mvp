@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-{% block title %}Raumzugänge{% endblock %}
+{% block title %}Verwaltung · QR-Zugänge{% endblock %}
 {% block content %}
 <section class="card">
-  <h1>Raumzugänge</h1>
+  <h1>QR-Zugänge</h1>
   <p class="muted">Jeder gültige Raum-QR-Code erlaubt das Lesen aller Logbücher und Bilder sowie den Nachdruck aller Raumcodes. Der Link öffnet weiterhin das jeweilige Raumformular.</p>
   {% if request.query_params.get('erneuert') == '1' %}
     <p class="success-note" role="status">Alle QR-Zugänge erneuert. Bisherige Codes und alle Reader-Sitzungen sind ungültig. Bitte alle Raumcodes neu ausdrucken und aushängen.</p>
@@ -31,6 +31,5 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button type="submit" class="danger-button">Alle QR-Zugänge erneuern</button>
   </form>
-  <p><a href="/admin">Zurück zur Verwaltung</a></p>
 </section>
 {% endblock %}

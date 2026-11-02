@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Verwaltung · Anmelden{% endblock %}
+{% block content %}
+<section class="card admin-login">
+  <h1>Anmelden</h1>
+  <p class="muted">Melde dich an, um Einträge, Nachrichten und QR-Zugänge zu verwalten.</p>
+  {% if logged_out %}<p class="success-note" role="status">Du bist abgemeldet.</p>{% endif %}
+  {% if error %}<p class="error-note" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/admin/anmelden">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="next" value="{{ target }}">
+    <label>Benutzername
+      <input name="username" value="{{ username }}" autocomplete="username" maxlength="256" required>
+    </label>
+    <label>Passwort
+      <input type="password" name="password" autocomplete="current-password" maxlength="4096" required>
+    </label>
+    <button type="submit">Anmelden</button>
+  </form>
+</section>
+{% endblock %}

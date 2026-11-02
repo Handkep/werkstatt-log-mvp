@@ -16,7 +16,7 @@ from app import capabilities, db, middleware
 from app.main import app
 from app.routes import public
 from app.services import pdf
-from tests.conftest import ADMIN, VALID
+from tests.conftest import VALID, admin_auth
 
 
 @pytest.fixture
@@ -49,10 +49,13 @@ def grant(client, slug="sauna", value=None):
 
 
 def rotation(client):
-    response = client.get("/admin/raumzugaenge", auth=ADMIN)
+    response = client.get("/admin/raumzugaenge", auth=admin_auth(client))
     csrf = re.search(r'name="csrf_token" value="([^"]+)"', response.text)[1]
     return client.post(
-        "/admin/reader-access/rotate", auth=ADMIN, data={"csrf_token": csrf}, follow_redirects=False
+        "/admin/reader-access/rotate",
+        auth=admin_auth(client),
+        data={"csrf_token": csrf},
+        follow_redirects=False,
     )
 
 
@@ -110,8 +113,13 @@ def test_reader_has_no_admin_rights(reader_client):
 
 
 def test_admin_can_print_all_pdfs_without_reader_session(reader_client):
-    assert reader_client.get("/r/sauna/qr.pdf", auth=ADMIN).status_code == 200
-    assert reader_client.get(f"/admin/rooms/{room()['id']}/qr.pdf", auth=ADMIN).status_code == 200
+    assert reader_client.get("/r/sauna/qr.pdf", auth=admin_auth(reader_client)).status_code == 200
+    assert (
+        reader_client.get(
+            f"/admin/rooms/{room()['id']}/qr.pdf", auth=admin_auth(reader_client)
+        ).status_code
+        == 200
+    )
     assert capabilities.READER_COOKIE not in reader_client.cookies
 
 
@@ -278,10 +286,12 @@ def test_rotation_requires_admin_and_csrf(reader_client):
     grant(reader_client)
     path = "/admin/reader-access/rotate"
     assert reader_client.post(path).status_code == 401
-    assert reader_client.post(path, auth=ADMIN).status_code == 403
+    assert reader_client.post(path, auth=admin_auth(reader_client)).status_code == 403
     assert (
         reader_client.post(
-            f"/admin/rooms/{room()['id']}/rotate-key", auth=ADMIN, data={"csrf_token": "old"}
+            f"/admin/rooms/{room()['id']}/rotate-key",
+            auth=admin_auth(reader_client),
+            data={"csrf_token": "old"},
         ).status_code
         == 404
     )
@@ -391,7 +401,7 @@ def test_public_forms_work_without_key_or_reader(reader_client, monkeypatch):
         reader_client.post("/hilfe", data={"note": "public"}, follow_redirects=False).status_code
         == 303
     )
-    assert reader_client.get("/r/sauna/qr.pdf", auth=ADMIN).status_code == 503
+    assert reader_client.get("/r/sauna/qr.pdf", auth=admin_auth(reader_client)).status_code == 503
 
 
 def test_master_change_revokes_reader_and_old_qr(reader_client, monkeypatch):
@@ -405,7 +415,7 @@ def test_master_change_revokes_reader_and_old_qr(reader_client, monkeypatch):
 
 def test_missing_base_has_no_host_fallback(reader_client, monkeypatch):
     monkeypatch.delenv("PUBLIC_BASE_URL")
-    assert reader_client.get("/r/sauna/qr.pdf", auth=ADMIN).status_code == 503
+    assert reader_client.get("/r/sauna/qr.pdf", auth=admin_auth(reader_client)).status_code == 503
 
 
 @pytest.mark.parametrize(
@@ -496,10 +506,10 @@ def test_admin_copy_requires_csrf_and_reader_cannot_use_admin_aliases(reader_cli
     room_id = room()["id"]
     path = f"/admin/rooms/{room_id}/access-link"
     assert reader_client.post(path).status_code == 401
-    assert reader_client.post(path, auth=ADMIN).status_code == 403
-    response = reader_client.get("/admin/raumzugaenge", auth=ADMIN)
+    assert reader_client.post(path, auth=admin_auth(reader_client)).status_code == 403
+    response = reader_client.get("/admin/raumzugaenge", auth=admin_auth(reader_client))
     csrf = re.search(r'name="csrf_token" value="([^"]+)"', response.text)[1]
-    response = reader_client.post(path, auth=ADMIN, data={"csrf_token": csrf})
+    response = reader_client.post(path, auth=admin_auth(reader_client), data={"csrf_token": csrf})
     assert response.status_code == 200 and "#access=" in response.json()["url"]
     assert reader_client.get(f"/admin/rooms/{room_id}/qr.pdf").status_code == 401
     assert reader_client.get("/admin/uploads/unknown.png").status_code == 401
@@ -516,7 +526,7 @@ def test_deactivating_source_room_does_not_revoke_global_session(reader_client):
 def test_invalid_master_never_appears_in_errors(reader_client, monkeypatch):
     secret = "private-invalid-master"
     monkeypatch.setenv("QR_MASTER_KEY", secret)
-    response = reader_client.get("/r/sauna/qr.pdf", auth=ADMIN)
+    response = reader_client.get("/r/sauna/qr.pdf", auth=admin_auth(reader_client))
     assert response.status_code == 503 and secret not in response.text
     with pytest.raises(ValueError) as error:
         capabilities.validate_capability_config()

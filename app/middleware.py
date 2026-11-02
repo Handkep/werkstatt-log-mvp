@@ -16,6 +16,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from app.auth import issue_csrf_token
 from app.capabilities import READER_COOKIE, renew_reader_session, set_reader_cookie
 from app.config import (
     MAX_REQUEST_SIZE_BYTES,
@@ -31,7 +32,7 @@ from app.public_errors import public_failure
 PUBLIC_SUBMISSION = re.compile(r"^/r/[^/]+/(submit|access)/?$")
 
 
-def consume_rate_limit(client: str) -> int:
+def consume_rate_limit(client: str, *, namespace: str = "public") -> int:
     """Atomare, persistente Fenster; keine IPs im Klartext. Fehler sind fail-closed."""
     now = int(time.time())
     with db_connect() as conn:
@@ -39,9 +40,11 @@ def consume_rate_limit(client: str) -> int:
         secret = conn.execute(
             "SELECT value FROM app_state WHERE key='rate_limit_secret'"
         ).fetchone()[0]
-        digest = hmac.new(secret.encode(), client.encode(), hashlib.sha256).hexdigest()
+        identity = client if namespace == "public" else namespace + ":" + client
+        digest = hmac.new(secret.encode(), identity.encode(), hashlib.sha256).hexdigest()
         conn.execute("DELETE FROM rate_limits WHERE expires_at <= ?", (now,))
-        buckets = [(digest, RATE_LIMIT_COUNT), ("global", RATE_LIMIT_GLOBAL_COUNT)]
+        global_bucket = "global" if namespace == "public" else namespace + ":global"
+        buckets = [(digest, RATE_LIMIT_COUNT), (global_bucket, RATE_LIMIT_GLOBAL_COUNT)]
         for bucket, limit in buckets:
             row = conn.execute(
                 "SELECT count, expires_at FROM rate_limits WHERE bucket=?", (bucket,)
@@ -99,6 +102,13 @@ class RequestProtectionMiddleware:
         async def deliver(message):
             if message["type"] == "http.response.start":
                 response_headers = MutableHeaders(scope=message)
+                csrf = scope["state"].get("admin_csrf_cookie")
+                if csrf:
+                    carrier = Response()
+                    issue_csrf_token(Request(scope), carrier, csrf)
+                    for name, value in carrier.raw_headers:
+                        if name == b"set-cookie":
+                            response_headers.append("set-cookie", value.decode("latin-1"))
                 response_headers["X-Content-Type-Options"] = "nosniff"
                 response_headers["X-Frame-Options"] = "DENY"
                 response_headers["Referrer-Policy"] = "no-referrer"

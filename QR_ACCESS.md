@@ -18,14 +18,16 @@ Formulare und das Eintragen einer Nutzung bleiben ohne Reader-Zugang verfügbar.
 
 `require_reader` ist die zentrale Dependency geschützter Reader-Endpunkte. Eine
 fehlende, abgelaufene oder widerrufene Reader-Berechtigung ergibt **403 ohne
-WWW-Authenticate**. Damit erscheint kein Basic-Admin-Login-Dialog. HTTP Basic bleibt
-auf den ausdrücklich aufgerufenen Admin-Bereich beschränkt. Reader-Cookies erteilen
-keine Admin-Rechte.
+WWW-Authenticate**. Es erscheint kein Browser-Anmeldedialog. Die Verwaltung verwendet
+eine eigene Formularanmeldung mit einer serverseitigen Admin-Sitzung; HTTP Basic wird
+nicht mehr akzeptiert. Reader-Cookies erteilen keine Admin-Rechte.
 
 Die Admin-Oberfläche verwendet für ihre Bilder, PDFs und Kopieraktionen `/admin/...`-
-Adressen. So bleiben diese Funktionen mit dem vorhandenen Basic-Zugang nutzbar, auch
-wenn der Browser Zugangsdaten für öffentliche Reader-Adressen nicht automatisch sendet.
-Es wird keine zusätzliche Admin-Reader-Sitzung angelegt und kein neues Kontensystem eingeführt.
+Adressen. Diese prüfen dieselbe Admin-Sitzung wie die übrige Verwaltung. Es wird
+keine zusätzliche Reader-Sitzung angelegt und kein neues Kontensystem eingeführt.
+Die konfigurierten Admin-Zugangsdaten bleiben unverändert. Das Admin-Cookie ist
+unabhängig vom QR-Lesezugang, gilt höchstens acht Stunden und wird beim Abmelden
+serverseitig widerrufen. Anmeldung, Cookieattribute und Migration sind im README dokumentiert.
 
 Die Hauptnavigation trennt Räume, Logbuch (`/logbuch`) und Hilfe & Infos (`/hilfe`).
 Das öffentliche Nachrichtenformular unter Hilfe & Infos gibt keine eingegangenen
@@ -36,8 +38,7 @@ wurden ohne Kompatibilitätsrouten entfernt.
 Im geöffneten Raum lädt die separate Gruppe „Letzte Buchungen“ höchstens drei
 nicht gelöschte Einträge dieses Raums nach. `/r/{slug}/recent-bookings` verwendet
 dieselbe zentrale Reader-Dependency wie das Logbuch. Die Administration verwendet
-`/admin/rooms/{id}/recent-bookings`, damit der Browser seine Basic-Authentifizierung
-im Admin-Schutzbereich senden kann. Karten und Bilder bleiben geschützt; der
+`/admin/rooms/{id}/recent-bookings` mit derselben Admin-Sitzung wie die übrige Verwaltung. Karten und Bilder bleiben geschützt; der
 öffentliche HTML-Formularabruf enthält keine Buchungsdaten.
 
 ## Erster Ausdruck und lokaler Betrieb

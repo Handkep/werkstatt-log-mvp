@@ -37,22 +37,6 @@ if (themeToggle) {
   });
 }
 
-document.querySelectorAll("[data-admin-menu]").forEach((menu) => {
-  const toggle = menu.querySelector("summary");
-  document.addEventListener("click", (event) => {
-    if (!menu.contains(event.target)) menu.open = false;
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && menu.open) {
-      menu.open = false;
-      toggle.focus();
-    }
-  });
-  menu.addEventListener("click", (event) => {
-    if (event.target.closest("a")) menu.open = false;
-  });
-});
-
 document.querySelectorAll(".file-input").forEach((input) => {
   const label = input.closest(".file-drop")?.querySelector("[data-file-label]");
   const title = input.closest(".file-drop")?.querySelector("[data-file-title]");
