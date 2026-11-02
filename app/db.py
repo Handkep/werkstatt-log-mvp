@@ -67,6 +67,8 @@ def fetch_booking_entries(
     selected_condition: str = "",
     search: str = "",
     limit: int = 20,
+    offset: int = 0,
+    literal_search: bool = False,
 ) -> list[dict]:
     """Lädt Buchungseinträge mit optionalem Raumfilter."""
 
@@ -82,14 +84,17 @@ def fetch_booking_entries(
         query_params.append(selected_condition)
 
     if search:
-        where_clause += """
+        escape_clause = " ESCAPE '\\'" if literal_search else ""
+        where_clause += f"""
             AND (
-                usage_sessions.person_name LIKE ?
-                OR usage_sessions.house LIKE ?
-                OR usage_sessions.remark LIKE ?
-                OR rooms.name LIKE ?
+                usage_sessions.person_name LIKE ?{escape_clause}
+                OR usage_sessions.house LIKE ?{escape_clause}
+                OR usage_sessions.remark LIKE ?{escape_clause}
+                OR rooms.name LIKE ?{escape_clause}
             )
         """
+        if literal_search:
+            search = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         search_term = f"%{search}%"
         query_params.extend([search_term, search_term, search_term, search_term])
 
@@ -112,9 +117,9 @@ def fetch_booking_entries(
         {where_clause}
         GROUP BY usage_sessions.id
         ORDER BY usage_sessions.started_at DESC, usage_sessions.id DESC
-        LIMIT ?
+        LIMIT ? OFFSET ?
         """,
-        [*query_params, limit],
+        [*query_params, limit, offset],
     ).fetchall()
 
     entries = [dict(row) for row in rows]
@@ -122,6 +127,22 @@ def fetch_booking_entries(
         filenames = entry["image_filenames"] or ""
         entry["images"] = [filename for filename in filenames.split(",") if filename]
     return entries
+
+
+def fetch_latest_room_status(conn: sqlite3.Connection) -> list[dict]:
+    """Nur Zustand und Zeitpunkt; keine Personen-, Bemerkungs- oder Bilddaten."""
+    rows = conn.execute("""
+        SELECT rooms.slug, usage_sessions.condition, usage_sessions.started_at
+        FROM rooms
+        LEFT JOIN usage_sessions ON usage_sessions.id = (
+            SELECT latest.id FROM usage_sessions AS latest
+            WHERE latest.room_id = rooms.id AND latest.deleted_at IS NULL
+            ORDER BY latest.started_at DESC, latest.id DESC LIMIT 1
+        )
+        WHERE rooms.is_active = 1
+        ORDER BY rooms.sort_order, rooms.name COLLATE NOCASE
+    """).fetchall()
+    return [dict(row) for row in rows]
 
 
 def fetch_general_notes(conn: sqlite3.Connection, *, limit: int = 20):

@@ -18,11 +18,12 @@ ASSET_VERSION = hashlib.sha256(
     b"".join(
         path.read_bytes()
         for path in sorted((BASE_DIR / "static").rglob("*"))
-        if path.suffix in {".js", ".css"}
+        if path.suffix in {".js", ".css", ".svg"}
     )
 ).hexdigest()[:12]
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates.env.globals["asset_version"] = ASSET_VERSION
 
 
 def random_name_placeholder() -> str:

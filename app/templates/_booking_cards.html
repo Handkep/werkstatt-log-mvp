@@ -1,3 +1,4 @@
+{% from "_icons.html" import icon %}
 {% if entries %}
 <div class="booking-card-list">
       {% for entry in entries %}
@@ -20,8 +21,8 @@
 
           <div class="mobile-entry-actions">
             {% if entry.image_count %}
-              <button class="booking-images" type="button" data-viewer-images='{{ entry.images|tojson }}'>
-                {{ entry.image_count }} Bild{% if entry.image_count != 1 %}er{% endif %}
+              <button class="booking-images has-icon" type="button" data-viewer-images='{{ entry.images|tojson }}'>
+                {{ icon('images') }} {{ entry.image_count }} Bild{% if entry.image_count != 1 %}er{% endif %}
               </button>
             {% else %}
               <span class="entry-empty">Keine Bilder</span>

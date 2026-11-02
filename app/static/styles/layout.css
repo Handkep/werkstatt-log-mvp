@@ -4,6 +4,61 @@
   padding: 24px 16px;
 }
 
+.content-narrow {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 24px;
+}
+
+.page-actions .button {
+  width: auto;
+}
+
+.error-page > p {
+  line-height: 1.6;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+
+.help-topics {
+  margin: 24px 0;
+}
+
+.help-topics details {
+  border-bottom: 1px solid var(--row-border);
+}
+
+.help-topics summary {
+  padding: 16px 0;
+  cursor: pointer;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.help-topics details p {
+  color: var(--soft-text);
+  line-height: 1.6;
+}
+
+.help-topics details:target {
+  background: var(--page-bg);
+  border-radius: 8px;
+  padding-inline: 12px;
+}
+
+
 .site-header {
   display: grid;
   gap: 14px;
@@ -86,30 +141,11 @@
 }
 
 .admin-menu-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
   list-style: none;
-  cursor: pointer;
 }
 
 .admin-menu-toggle::-webkit-details-marker {
   display: none;
-}
-
-.admin-menu-toggle:hover,
-.admin-menu.is-current .admin-menu-toggle,
-.admin-menu[open] .admin-menu-toggle {
-  background: var(--control-bg);
-  color: var(--text);
-}
-
-.admin-menu-toggle:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
 }
 
 .admin-menu-panel {
@@ -149,26 +185,36 @@
   text-align: center;
 }
 
-.theme-toggle {
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0;
-  background: var(--control-bg);
-  color: var(--text);
-  line-height: 1;
-  box-shadow: none;
-  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+.room-footer {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 20px;
+  line-height: 1.5;
 }
 
-.theme-toggle:hover {
-  transform: translateY(-1px) rotate(12deg);
+.room-footer .remember-choice {
+  justify-content: center;
+  text-align: left;
 }
 
-.theme-toggle:active {
-  transform: translateY(0) scale(0.96);
+.room-footer .remember-settings [data-forget-personal] {
+  justify-self: center;
+  text-align: center;
+}
+
+.room-footer [data-remember-status]:empty {
+  display: none;
+}
+
+.room-footer-feedback {
+  margin: 0;
+}
+
+.room-footer a:focus-visible,
+.room-footer button:focus-visible,
+.room-footer input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 
 @media (max-width: 640px) {

@@ -5,16 +5,20 @@ import sqlite3
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.capabilities import validate_capability_config
 from app.config import ALLOWED_HOSTS, BASE_DIR, DATA_DIR, SITE_TITLE, UPLOAD_DIR, logger
 from app.db import init_db
 from app.middleware import RequestProtectionMiddleware
+from app.public_errors import public_failure, wants_public_html
 from app.routes.admin import router as admin_router
+from app.routes.public import invalid_form_response
 from app.routes.public import router as public_router
 from app.utils import configured_public_base_url
 
@@ -42,11 +46,36 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 @app.exception_handler(sqlite3.Error)
 async def database_error(request: Request, exc: sqlite3.Error):
     logger.error("Datenbankzugriff fehlgeschlagen (%s)", type(exc).__name__)
-    return PlainTextResponse(
+    return public_failure(
+        request,
         "Dienst vorübergehend nicht verfügbar.",
         status_code=503,
         headers={"Cache-Control": "private, no-store", "Retry-After": "5"},
     )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def public_http_error(request: Request, exc: StarletteHTTPException):
+    if wants_public_html(request):
+        return public_failure(request, str(exc.detail), exc.status_code, exc.headers)
+    return await http_exception_handler(request, exc)
+
+
+@app.exception_handler(RequestValidationError)
+async def public_validation_error(request: Request, exc: RequestValidationError):
+    if wants_public_html(request):
+        field = next(
+            (
+                error["loc"][1]
+                for error in exc.errors()
+                if len(error["loc"]) > 1 and error["loc"][0] == "body"
+            ),
+            "",
+        )
+        if request.url.path.endswith("/submit") or request.url.path == "/hilfe":
+            return await run_in_threadpool(invalid_form_response, request, exc.body, str(field))
+        return public_failure(request, "Bitte fülle alle Pflichtfelder korrekt aus.", 422)
+    return await request_validation_exception_handler(request, exc)
 
 
 app.include_router(public_router)

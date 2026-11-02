@@ -3,7 +3,7 @@
 
 {% block content %}
 <section class="card">
-  <h1>Danke!</h1>
+  <h1>Eintrag gespeichert</h1>
   <p>Die Nutzung für {% if room %}{{ room.name }}{% else %}den Raum{% endif %} wurde gespeichert.</p>
 
   <section class="exit-checklist" aria-labelledby="exit-checklist-title" data-exit-checklist>
@@ -39,15 +39,13 @@
   </section>
 
   <p class="card-link">
-    {% if room %}
-      <a class="button" href="/r/{{ room.slug }}">Noch einen Eintrag für {{ room.name }} anlegen</a>
-    {% else %}
-      <a class="button" href="/">Zu den Räumen</a>
-    {% endif %}
+    <a class="button" href="/">Zur Raumübersicht</a>
   </p>
 
+  {% if room %}
   <p class="card-link">
-    <a href="/">Zur Raumübersicht</a>
+    <a href="/r/{{ room.slug }}">Noch einen Eintrag für {{ room.name }} anlegen</a>
   </p>
+  {% endif %}
 </section>
 {% endblock %}

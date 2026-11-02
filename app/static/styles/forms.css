@@ -3,6 +3,65 @@ form {
   gap: 16px;
 }
 
+.house-fields {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+.house-fields .radio-group {
+  margin-top: 6px;
+}
+
+
+.field-error {
+  color: #b91c1c;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+:root[data-theme="dark"] .field-error {
+  color: #fca5a5;
+}
+
+[aria-invalid="true"] {
+  border-color: #dc2626;
+}
+
+.error-note ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.error-note p {
+  margin-bottom: 0;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.error-note a {
+  color: inherit;
+}
+
+.error-note:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+
+@media (min-width: 640px) {
+  .house-fields {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+
+}
+
 .remember-settings {
   display: grid;
   gap: 8px;

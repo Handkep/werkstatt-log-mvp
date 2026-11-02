@@ -64,7 +64,9 @@ def fill_usage(page):
 
 def test_personal_data_saved_while_typing_and_can_be_removed(page, live_url, browser):
     page.goto(live_url + "/r/sauna")
-    assert page.locator("[data-remember-enabled]").is_checked()
+    remember = page.locator("footer [data-remember-enabled]")
+    assert remember.is_checked()
+    assert remember.evaluate("el => el.form.id === 'room-usage-form' && !el.closest('form')")
     fill_usage(page)
     page.locator('[name="house_number"]').fill("0012")
     page.get_by_text("GH", exact=True).click()
@@ -82,6 +84,10 @@ def test_personal_data_saved_while_typing_and_can_be_removed(page, live_url, bro
     finally:
         restored.close()
     page.locator("[data-forget-personal]").click()
+    assert page.url == live_url + "/r/werkstatt"
+    assert page.locator('[name="person_name"]').input_value() == ""
+    assert page.locator('[name="house_number"]').input_value() == ""
+    assert page.locator('[name="house_group"][value="TH"]').is_checked()
     assert page.evaluate("localStorage.getItem('usage_person_name')") is None
     assert page.evaluate("localStorage.getItem('usage_remember')") == "no"
     page.reload()
@@ -103,6 +109,7 @@ def test_remember_toggle_and_anonymous_help_preserve_profile(page, live_url, cli
     page.locator('[name="person_name"]').fill("Profile Person")
     page.locator("[data-remember-enabled]").check()
     page.goto(live_url + "/hilfe")
+    assert page.locator("footer [data-remember-enabled]").count() == 0
     assert page.locator('[name="person_name"]').input_value() == "Profile Person"
     page.locator('[name="person_name"]').fill("")
     page.locator('[name="note"]').fill("Anonymous question")
@@ -190,7 +197,7 @@ def test_viewer_keyboard_focus_and_screenreader_status(page, live_url, client):
     from tests.test_capabilities import token
 
     page.goto(live_url + "/r/werkstatt#access=" + token("werkstatt"))
-    page.get_by_role("link", name="QR-Code ausdrucken", exact=True).wait_for()
+    page.get_by_role("link", name="QR-PDF herunterladen", exact=True).wait_for()
     page.goto(live_url + "/logbuch")
     trigger = page.locator("[data-viewer-images]").first
     trigger.focus()
@@ -229,10 +236,10 @@ def test_room_qr_icon_downloads_directly_without_opening_room(page, live_url):
     from tests.test_capabilities import token
 
     page.goto(live_url + "/r/werkstatt#access=" + token("werkstatt"))
-    page.get_by_role("link", name="QR-Code ausdrucken", exact=True).wait_for()
+    page.get_by_role("link", name="QR-PDF herunterladen", exact=True).wait_for()
     page.goto(live_url)
     page.evaluate("document.documentElement.dataset.theme = 'dark'")
-    link = page.get_by_role("link", name="QR-Code für Werkstatt herunterladen", exact=True)
+    link = page.get_by_role("link", name="QR-PDF für Werkstatt herunterladen", exact=True)
     with page.expect_download() as download:
         link.click()
     assert download.value.suggested_filename == "zelter5-qr-werkstatt.pdf"

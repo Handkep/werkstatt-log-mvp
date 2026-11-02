@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Raumzugänge{% endblock %}
 {% block content %}
 <section class="card">
@@ -12,9 +13,13 @@
     <section class="room-card">
       <h2>{{ room.name }}</h2>
       <p>Schlüsselversion {{ room.qr_key_version }}</p>
-      <a class="button secondary-button" href="/admin/rooms/{{ room.id }}/qr.pdf" download>QR-Code ausdrucken</a>
+      <a class="button secondary-button has-icon" href="/admin/rooms/{{ room.id }}/qr.pdf" download>{{ icon('qr-code') }} QR-PDF herunterladen</a>
       <div data-access-link-control>
-        <button type="button" class="secondary-button" data-copy-access-link="/admin/rooms/{{ room.id }}/access-link" data-csrf-token="{{ csrf_token }}">Zugangslink kopieren</button>
+        <button type="button" class="secondary-button has-icon" data-copy-access-link="/admin/rooms/{{ room.id }}/access-link" data-csrf-token="{{ csrf_token }}">
+          <span class="icon-state" data-copy-icon>{{ icon('link') }}</span>
+          <span class="icon-state" data-copied-icon hidden>{{ icon('check') }}</span>
+          Zugangslink kopieren
+        </button>
         <p data-access-link-status role="status" aria-live="polite" hidden></p>
       </div>
     </section>

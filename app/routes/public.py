@@ -6,7 +6,7 @@ import re
 import sqlite3
 import tempfile
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from fastapi import (
     APIRouter,
@@ -44,10 +44,12 @@ from app.db import (
     db_connect,
     fetch_booking_entries,
     fetch_image_by_filename,
+    fetch_latest_room_status,
     load_active_rooms,
     load_room_by_slug,
 )
 from app.forms import read_extra_field_values
+from app.public_errors import public_failure
 from app.services.notifications import notify_usage_safely
 from app.services.pdf import room_qr_pdf_response
 from app.services.uploads import UploadValidationError, validate_image_uploads
@@ -70,12 +72,38 @@ def room_form_response(
     *,
     error: str = "",
     form_values: dict | None = None,
+    error_field: str = "",
 ) -> HTMLResponse:
     """Rendert das Raumformular mit optionaler Fehlermeldung."""
 
     with db_connect() as conn:
         has_read_access = has_reader_access(conn, request)
     admin_csrf = csrf_token_for_request(request) if request_is_admin(request) else ""
+    values = form_values or {}
+    if error and not error_field:
+        labels = {
+            "Name": "person_name",
+            "Haus": "house_number",
+            "Zustand": "condition",
+            "Bemerkung": "remark",
+        }
+        labels.update(
+            {
+                field.get("label", field["name"]): field["name"]
+                for field in room.get("extra_fields", [])
+                if field.get("name")
+            }
+        )
+        error_field = next(
+            (
+                labels[label]
+                for label in sorted(labels, key=len, reverse=True)
+                if label and error.startswith(label)
+            ),
+            "images",
+        )
+        if error_field == "house_number" and values.get("house_group", "") not in HOUSE_GROUPS:
+            error_field = "house_group"
     response = templates.TemplateResponse(
         request=request,
         name="room_form.html",
@@ -88,6 +116,7 @@ def room_form_response(
             conditions=WORKSHOP_CONDITIONS,
             name_placeholder=random_name_placeholder(),
             form_error=error,
+            field_errors={error_field: error} if error else {},
             form_values=form_values or {},
             has_read_access=has_read_access,
             csrf_token=admin_csrf,
@@ -106,6 +135,7 @@ def help_response(
     error: str = "",
     form_values: dict | None = None,
     saved: bool = False,
+    error_field: str = "",
 ) -> HTMLResponse:
     """Rendert Hilfe & Infos mit dem öffentlichen Nachrichtenformular."""
 
@@ -119,10 +149,44 @@ def help_response(
             saved=saved,
             name_placeholder=random_name_placeholder(),
             form_error=error,
+            field_errors={
+                (error_field or ("person_name" if error.startswith("Name") else "note")): error
+            }
+            if error
+            else {},
             form_values=form_values or {},
         ),
         status_code=400 if error else 200,
     )
+
+
+def invalid_form_response(request: Request, body, field: str):
+    """FastAPI-Pflichtfeldfehler mit vorhandenen Textwerten im Formular anzeigen."""
+    if not isinstance(body, FormData):
+        return public_failure(request, "Bitte fülle alle Pflichtfelder korrekt aus.", 422)
+    values = {key: value for key, value in body.items() if isinstance(value, str)}
+    labels = {
+        "person_name": "Name",
+        "house_group": "Haus",
+        "house_number": "Nummer",
+        "condition": "Zustand",
+        "note": "Nachricht",
+        "images": "Bilder",
+    }
+    error = f"{labels.get(field, 'Eingabe')} fehlt oder ist ungültig."
+    if request.url.path == "/hilfe":
+        response = help_response(request, error=error, form_values=values, error_field=field)
+    else:
+        slug = request.path_params.get("room_slug", "")
+        with db_connect() as conn:
+            room = load_room_by_slug(conn, slug)
+        if room is None:
+            return public_failure(request, "Dieser Raum ist nicht verfügbar.", 404)
+        response = room_form_response(
+            request, room, error=error, form_values=values, error_field=field
+        )
+    response.status_code = 422
+    return response
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -150,7 +214,11 @@ def room_form(request: Request, room_slug: str):
         room = load_room_by_slug(conn, room_slug)
 
     if room is None:
-        return HTMLResponse("Raum nicht gefunden", status_code=404)
+        return public_failure(
+            request,
+            "Dieser Raum ist nicht verfügbar. Wähle bitte einen Raum aus der Übersicht.",
+            404,
+        )
 
     return room_form_response(request, room)
 
@@ -208,7 +276,11 @@ def save_usage(
     with db_connect() as conn:
         room = load_room_by_slug(conn, room_slug)
     if room is None:
-        return HTMLResponse("Raum nicht gefunden", status_code=404)
+        return public_failure(
+            request,
+            "Dieser Raum ist nicht verfügbar. Wähle bitte einen Raum aus der Übersicht.",
+            404,
+        )
 
     form_values = {
         "person_name": person_name,
@@ -265,8 +337,8 @@ def save_usage(
     except UploadValidationError as exc:
         return room_form_response(request, room, error=str(exc), form_values=form_values)
     except OSError:
-        return HTMLResponse(
-            "Upload derzeit nicht lesbar. Bitte später erneut versuchen.", status_code=503
+        return public_failure(
+            request, "Upload derzeit nicht lesbar. Bitte später erneut versuchen.", 503
         )
 
     started_at = now_iso()
@@ -344,8 +416,8 @@ def save_usage(
         if isinstance(exc, UploadValidationError):
             return room_form_response(request, room, error=str(exc), form_values=form_values)
         logger.error("Nutzung konnte nicht gespeichert werden (%s)", type(exc).__name__)
-        return HTMLResponse(
-            "Speichern derzeit nicht möglich. Bitte später erneut versuchen.", status_code=503
+        return public_failure(
+            request, "Speichern derzeit nicht möglich. Bitte später erneut versuchen.", 503
         )
 
     finally:
@@ -447,10 +519,65 @@ def logbook(request: Request):
     """Globale Reader-Ansicht aller nicht gelöschten Nutzungen."""
 
     selected_room = request.query_params.get("raum", "").strip()
+    selected_condition = request.query_params.get("zustand", "").strip()
+    search = request.query_params.get("q", "").strip()
+    page_raw = request.query_params.get("seite", "1")
+    valid_page = (
+        page_raw.isascii()
+        and page_raw.isdecimal()
+        and len(page_raw) <= 7
+        and 1 <= int(page_raw) <= 1000000
+    )
+    page = int(page_raw) if valid_page else 1
+    logbook_url = "/admin/logbuch" if request_is_admin(request) else "/logbuch"
 
     with db_connect() as conn:
         rooms = load_active_rooms(conn)
-        entries = fetch_booking_entries(conn, selected_room=selected_room, limit=20)
+        filter_error = ""
+        if not valid_page:
+            filter_error = "Bitte wähle eine gültige Logbuchseite."
+        elif selected_room and selected_room not in {room["slug"] for room in rooms}:
+            filter_error = "Dieser Raumfilter ist nicht verfügbar. Bitte wähle einen aktiven Raum."
+        elif selected_condition and selected_condition not in WORKSHOP_CONDITIONS:
+            filter_error = "Bitte wähle einen gültigen Zustand."
+        elif len(search) > 100:
+            filter_error = "Die Suche darf maximal 100 Zeichen lang sein."
+        entries = (
+            []
+            if filter_error
+            else fetch_booking_entries(
+                conn,
+                selected_room=selected_room,
+                selected_condition=selected_condition,
+                search=search,
+                limit=21,
+                offset=(page - 1) * 20,
+                literal_search=True,
+            )
+        )
+
+    def page_url(number):
+        params = {
+            key: value
+            for key, value in {
+                "raum": selected_room,
+                "q": search,
+                "zustand": selected_condition,
+                "seite": str(number),
+            }.items()
+            if value
+        }
+        return logbook_url + "?" + urlencode(params)
+
+    def room_url(slug):
+        query = urlencode(
+            {
+                key: value
+                for key, value in {"raum": slug, "q": search, "zustand": selected_condition}.items()
+                if value
+            }
+        )
+        return logbook_url + ("?" + query if query else "")
 
     return templates.TemplateResponse(
         request=request,
@@ -459,12 +586,30 @@ def logbook(request: Request):
             request,
             "public",
             "logbook",
-            entries=entries,
+            entries=entries[:20],
             rooms=rooms,
             selected_room=selected_room,
-            logbook_url="/admin/logbuch" if request_is_admin(request) else "/logbuch",
+            logbook_url=logbook_url,
+            conditions=WORKSHOP_CONDITIONS,
+            selected_condition=selected_condition,
+            search=search,
+            filter_error=filter_error,
+            has_filters=bool(selected_room or selected_condition or search),
+            page=page,
+            newer_url=page_url(page - 1) if page > 1 else "",
+            older_url=page_url(page + 1) if len(entries) > 20 else "",
+            first_url=page_url(1),
+            room_urls={room["slug"]: room_url(room["slug"]) for room in rooms},
+            all_rooms_url=room_url(""),
         ),
+        status_code=400 if filter_error else 200,
     )
+
+
+@router.get("/rooms/latest-status", dependencies=[Depends(require_reader)])
+def latest_room_status():
+    with db_connect() as conn:
+        return fetch_latest_room_status(conn)
 
 
 def room_bookings_response(request: Request, room: dict) -> HTMLResponse:

@@ -1,28 +1,21 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}{{ room.name }}{% endblock %}
 
 {% block content %}
-<section class="card">
+<section class="card content-narrow">
   <div class="room-heading" data-access-link-control>
     <h1>{{ room.name }}</h1>
     {% if has_read_access %}
       <div class="room-heading-actions">
-        <a class="room-heading-action" href="{% if admin_authenticated %}/admin/rooms/{{ room.id }}/qr.pdf{% else %}/r/{{ room.slug }}/qr.pdf{% endif %}" download
-           aria-label="QR-Code ausdrucken" title="QR-Code als PDF herunterladen">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <rect x="3" y="3" width="6" height="6" rx="0.8" />
-            <rect x="15" y="3" width="6" height="6" rx="0.8" />
-            <rect x="3" y="15" width="6" height="6" rx="0.8" />
-            <path d="M15 15h3v3h3v3h-6v-3M21 15h.01M12 3v3M12 12h3M3 12h3M9 12h.01M12 18v3" />
-          </svg>
+        <a class="icon-button room-heading-action" href="{% if admin_authenticated %}/admin/rooms/{{ room.id }}/qr.pdf{% else %}/r/{{ room.slug }}/qr.pdf{% endif %}" download
+           aria-label="QR-PDF herunterladen" data-tooltip="QR-PDF herunterladen">
+          {{ icon('qr-code') }}
         </a>
-        <button type="button" class="room-heading-action" data-copy-access-link="{% if admin_authenticated %}/admin/rooms/{{ room.id }}/access-link{% else %}/r/{{ room.slug }}/access-link{% endif %}"{% if admin_authenticated %} data-csrf-token="{{ csrf_token }}"{% endif %}
-                aria-label="Zugangslink kopieren" title="Zugangslink kopieren">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7" />
-          </svg>
+        <button type="button" class="icon-button room-heading-action" data-copy-access-link="{% if admin_authenticated %}/admin/rooms/{{ room.id }}/access-link{% else %}/r/{{ room.slug }}/access-link{% endif %}"{% if admin_authenticated %} data-csrf-token="{{ csrf_token }}"{% endif %}
+                aria-label="Zugangslink kopieren" data-tooltip="Zugangslink kopieren">
+          <span class="icon-state" data-copy-icon>{{ icon('link') }}</span>
+          <span class="icon-state" data-copied-icon hidden>{{ icon('check') }}</span>
         </button>
       </div>
       <p class="room-heading-status" data-access-link-status role="status" aria-live="polite" hidden></p>
@@ -31,17 +24,17 @@
   <p class="muted">{{ room.intro_text }}</p>
   <p data-room-access-status role="status" aria-live="polite" hidden></p>
 
-  {% if form_error %}
-    <p class="error-note" role="alert">{{ form_error }}</p>
-  {% endif %}
+  {% include "_form_errors.html" %}
 
-  <form method="post" action="/r/{{ room.slug }}/submit" enctype="multipart/form-data" data-remember-usage-form data-has-form-values="{% if form_values %}1{% else %}0{% endif %}">
+  <form id="room-usage-form" method="post" action="/r/{{ room.slug }}/submit" enctype="multipart/form-data" data-submit-once data-remember-usage-form data-has-form-values="{% if form_values %}1{% else %}0{% endif %}">
     <label>
       Name
-      <input name="person_name" required autocomplete="name" maxlength="{{ limits.max_name_length }}" value="{{ form_values.person_name or '' }}" placeholder="{{ name_placeholder }}" data-remember-name>
+      <input id="person_name" name="person_name" required autocomplete="name" maxlength="{{ limits.max_name_length }}" value="{{ form_values.person_name or '' }}" placeholder="{{ name_placeholder }}" data-remember-name {% if field_errors.person_name %}aria-invalid="true" aria-describedby="error-person_name"{% endif %}>
+      {% if field_errors.person_name %}<span class="field-error" id="error-person_name">{{ field_errors.person_name }}</span>{% endif %}
     </label>
 
-    <fieldset>
+    <div class="house-fields">
+    <fieldset id="house_group" tabindex="-1" {% if field_errors.house_group %}aria-invalid="true" aria-describedby="error-house_group"{% endif %}>
       <legend>Haus</legend>
       <div class="radio-group">
           {% for group in house_groups %}
@@ -51,14 +44,17 @@
             </label>
           {% endfor %}
       </div>
+      {% if field_errors.house_group %}<span class="field-error" id="error-house_group">{{ field_errors.house_group }}</span>{% endif %}
     </fieldset>
 
     <label>
       Nummer
-      <input name="house_number" required inputmode="numeric" pattern="[0-9]+" maxlength="{{ limits.max_house_number_length }}" value="{{ form_values.house_number or '' }}" placeholder="z. B. 1" data-remember-house-number>
+      <input id="house_number" name="house_number" required inputmode="numeric" pattern="[0-9]+" maxlength="{{ limits.max_house_number_length }}" value="{{ form_values.house_number or '' }}" placeholder="z. B. 1" data-remember-house-number {% if field_errors.house_number %}aria-invalid="true" aria-describedby="error-house_number"{% endif %}>
+      {% if field_errors.house_number %}<span class="field-error" id="error-house_number">{{ field_errors.house_number }}</span>{% endif %}
     </label>
+    </div>
 
-    <fieldset>
+    <fieldset id="condition" tabindex="-1" {% if field_errors.condition %}aria-invalid="true" aria-describedby="error-condition"{% endif %}>
       <legend>{{ room.condition_label }}</legend>
       <div class="radio-group condition-group">
         {% for condition in conditions %}
@@ -70,11 +66,13 @@
           </label>
         {% endfor %}
       </div>
+      {% if field_errors.condition %}<span class="field-error" id="error-condition">{{ field_errors.condition }}</span>{% endif %}
     </fieldset>
 
     <label>
       Bemerkung optional
-      <textarea name="remark" rows="4" maxlength="{{ limits.max_comment_length }}" placeholder="{{ room.remark_placeholder }}">{{ form_values.remark or '' }}</textarea>
+      <textarea id="remark" name="remark" rows="4" maxlength="{{ limits.max_comment_length }}" placeholder="{{ room.remark_placeholder }}" {% if field_errors.remark %}aria-invalid="true" aria-describedby="error-remark"{% endif %}>{{ form_values.remark or '' }}</textarea>
+      {% if field_errors.remark %}<span class="field-error" id="error-remark">{{ field_errors.remark }}</span>{% endif %}
       <span class="field-hint">Kurz reicht: genutzt, gereinigt, Defekt beschrieben oder „alles okay“.</span>
     </label>
 
@@ -83,34 +81,41 @@
         <label>
           {{ field.label }}
           <textarea
+            id="{{ field.name }}"
             name="{{ field.name }}"
+            {% if field_errors[field.name] %}aria-invalid="true" aria-describedby="error-{{ field.name }}"{% endif %}
             rows="{{ field.rows or 4 }}"
             maxlength="{{ limits.max_comment_length }}"
             {% if field.required %}required{% endif %}
             {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
           >{{ form_values[field.name] or '' }}</textarea>
+          {% if field_errors[field.name] %}<span class="field-error" id="error-{{ field.name }}">{{ field_errors[field.name] }}</span>{% endif %}
         </label>
       {% elif field.type == "select" %}
         <label>
           {{ field.label }}
-          <select name="{{ field.name }}" {% if field.required %}required{% endif %}>
+          <select id="{{ field.name }}" name="{{ field.name }}" {% if field_errors[field.name] %}aria-invalid="true" aria-describedby="error-{{ field.name }}"{% endif %} {% if field.required %}required{% endif %}>
             <option value="">Bitte wählen</option>
             {% for option in field.options %}
               <option value="{{ option.value }}" {% if form_values[field.name] == option.value %}selected{% endif %}>{{ option.label }}</option>
             {% endfor %}
           </select>
+          {% if field_errors[field.name] %}<span class="field-error" id="error-{{ field.name }}">{{ field_errors[field.name] }}</span>{% endif %}
         </label>
       {% else %}
         <label>
           {{ field.label }}
           <input
+            id="{{ field.name }}"
             name="{{ field.name }}"
+            {% if field_errors[field.name] %}aria-invalid="true" aria-describedby="error-{{ field.name }}"{% endif %}
             maxlength="{{ limits.max_comment_length }}"
             value="{{ form_values[field.name] or '' }}"
             {% if field.inputmode %}inputmode="{{ field.inputmode }}"{% endif %}
             {% if field.required %}required{% endif %}
             {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
           >
+          {% if field_errors[field.name] %}<span class="field-error" id="error-{{ field.name }}">{{ field_errors[field.name] }}</span>{% endif %}
         </label>
       {% endif %}
     {% endfor %}
@@ -118,33 +123,23 @@
     <div class="file-field">
       <span class="field-label">Bilder optional</span>
       <label class="file-drop">
-        <input class="file-input" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple>
-        <span class="file-drop-title">Bilder auswählen</span>
+        <input id="images" class="file-input" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple data-max-files="{{ limits.max_upload_images }}" data-max-file-bytes="{{ limits.max_upload_size_mb * 1024 * 1024 }}" aria-describedby="error-images" {% if field_errors.images %}aria-invalid="true"{% endif %}>
+        <span class="file-drop-title has-icon">{{ icon('image-plus') }}<span data-file-title>Bilder auswählen</span></span>
         <span class="file-drop-hint" data-file-label data-default-label="JPG, PNG oder WebP · max. {{ limits.max_upload_images }} Bilder à {{ limits.max_upload_size_mb }} MB">JPG, PNG oder WebP · max. {{ limits.max_upload_images }} Bilder à {{ limits.max_upload_size_mb }} MB</span>
       </label>
+      <p class="field-error" id="error-images" data-file-error role="status" {% if not field_errors.images %}hidden{% endif %}>{{ field_errors.images or '' }}</p>
       <div class="file-preview-list" data-file-preview-list aria-live="polite"></div>
     </div>
 
     <p class="form-note">
-      Mit dem Speichern akzeptierst du die <a href="/datenschutz">Datenschutzhinweise</a>.<br>
-      Hast du Fragen, Verbesserungsvorschläge oder Anmerkungen?
-      <a href="/hilfe">Lass gerne eine Nachricht da.</a>
+      Mit dem Speichern akzeptierst du die <a href="/datenschutz">Datenschutzhinweise</a>.
     </p>
-
-    <div class="remember-settings">
-      <label class="remember-choice">
-        <input type="checkbox" data-remember-enabled checked>
-        <span>Name, Haus und Nummer auf diesem Gerät merken</span>
-      </label>
-      <button type="button" data-forget-personal>Gespeicherte Eingaben entfernen</button>
-      <p class="field-hint" data-remember-status role="status" aria-live="polite"></p>
-    </div>
     <button type="submit">Nutzung speichern</button>
   </form>
 
 </section>
 
-<section class="card recent-bookings" aria-labelledby="recent-bookings-title">
+<section class="card content-narrow recent-bookings" aria-labelledby="recent-bookings-title">
   <div class="section-heading">
     <h2 id="recent-bookings-title">Letzte Buchungen</h2>
     {% if has_read_access %}
@@ -162,4 +157,21 @@
 </section>
 
 {% if has_read_access %}{% include "_image_viewer.html" %}{% endif %}
+{% endblock %}
+
+{% block footer_content %}
+<div class="room-footer content-narrow">
+  <div class="remember-settings">
+    <label class="remember-choice">
+      <input type="checkbox" form="room-usage-form" data-remember-enabled checked>
+      <span>Name, Haus und Nummer auf diesem Gerät merken</span>
+    </label>
+    <button type="button" form="room-usage-form" data-forget-personal>Gespeicherte Eingaben entfernen</button>
+    <p class="field-hint" data-remember-status role="status" aria-live="polite"></p>
+  </div>
+  <p class="room-footer-feedback">
+    Hast du Fragen, Verbesserungsvorschläge oder Anmerkungen?
+    <a href="/hilfe">Lass gerne eine Nachricht da.</a>
+  </p>
+</div>
 {% endblock %}

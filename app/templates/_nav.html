@@ -1,3 +1,4 @@
+{% from "_icons.html" import icon %}
 <header class="site-header">
   <div class="site-header-top">
     <a class="site-brand" href="/">
@@ -7,11 +8,8 @@
     <div class="site-header-actions">
       {% include "theme_toggle.html" %}
       <details class="admin-menu{% if admin_section_active %} is-current{% endif %}" data-admin-menu>
-        <summary class="admin-menu-toggle" aria-label="Verwaltung" title="Verwaltung">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <path d="m9 3-1 3-3 1 1 4-2 2 2 3 3-1 2 3h3l2-3 3 1 2-3-2-2 1-4-3-1-1-3z" />
-            <circle cx="12" cy="10.5" r="3" />
-          </svg>
+        <summary class="icon-button admin-menu-toggle" aria-label="Verwaltung" data-tooltip="Verwaltung">
+          {{ icon('shield-user') }}
         </summary>
         <nav class="admin-menu-panel" aria-label="Verwaltung">
           {% for item in admin_items %}

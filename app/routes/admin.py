@@ -16,7 +16,7 @@ from app.db import (
     load_room_by_slug,
     soft_delete_session,
 )
-from app.routes.public import logbook, room_bookings_response, uploaded_file
+from app.routes.public import latest_room_status, logbook, room_bookings_response, uploaded_file
 from app.services.pdf import room_qr_pdf_response
 from app.templating import display_extra_fields, page_context, templates
 
@@ -175,6 +175,11 @@ def admin_uploaded_file(filename: str):
 @router.get("/admin/logbuch", response_class=HTMLResponse)
 def admin_logbook(request: Request):
     return logbook(request)
+
+
+@router.get("/admin/rooms/latest-status")
+def admin_latest_room_status():
+    return latest_room_status()
 
 
 @router.get("/admin/rooms/{room_id}/recent-bookings")

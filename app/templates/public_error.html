@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ error_title }}{% endblock %}
+{% block content %}
+<section class="card content-narrow error-page">
+  <p class="eyebrow">{{ error_code }}</p>
+  <h1>{{ error_title }}</h1>
+  <p>{{ error_message }}</p>
+  {% if retry_after %}<p class="muted">Bitte versuche es frühestens in {{ retry_after }} Sekunden erneut.</p>{% endif %}
+  <div class="page-actions">
+    <a class="button" href="{{ return_url }}">{{ 'Zum Formular' if return_url != '/' else 'Zur Raumübersicht' }}</a>
+    <a href="/hilfe#qr-zugang">Hilfe zum Raumzugang</a>
+  </div>
+</section>
+{% endblock %}

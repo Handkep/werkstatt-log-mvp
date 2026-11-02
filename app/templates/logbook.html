@@ -1,17 +1,27 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Logbuch{% endblock %}
 
 {% block content %}
 <section class="card wide">
   <h1>Logbuch</h1>
-  <p class="muted">Geschützter Bereich: die neuesten Einträge der Raumnutzung.</p>
+  <p class="muted">Nutzungen nachlesen und frühere Meldungen wiederfinden.</p>
+
+  {% if filter_error %}<p class="error-note" role="alert">{{ filter_error }} <a href="{{ logbook_url }}">Filter zurücksetzen</a></p>{% endif %}
+  <form class="logbook-filters" method="get" action="{{ logbook_url }}">
+    {% if selected_room %}<input type="hidden" name="raum" value="{{ selected_room }}">{% endif %}
+    <label>Suche<input type="search" name="q" value="{{ search }}" maxlength="100" placeholder="Name, Haus oder Bemerkung"></label>
+    <label>Zustand<select name="zustand"><option value="">Alle Zustände</option>{% for condition in conditions %}<option value="{{ condition }}" {% if selected_condition == condition %}selected{% endif %}>{{ condition }}</option>{% endfor %}</select></label>
+    <button type="submit">Filtern</button>
+  </form>
 
   <div class="filter-bar" aria-label="Raumfilter">
-    <a class="filter-chip{% if not selected_room %} is-current{% endif %}" href="{{ logbook_url }}">Alle Räume</a>
+    <a class="filter-chip{% if not selected_room %} is-current{% endif %}" href="{{ all_rooms_url }}" {% if not selected_room %}aria-current="true"{% endif %}>Alle Räume</a>
     {% for room in rooms %}
-      <a class="filter-chip{% if selected_room == room.slug %} is-current{% endif %}" href="{{ logbook_url }}?raum={{ room.slug }}">{{ room.name }}</a>
+      <a class="filter-chip{% if selected_room == room.slug %} is-current{% endif %}" href="{{ room_urls[room.slug] }}" {% if selected_room == room.slug %}aria-current="true"{% endif %}>{{ room.name }}</a>
     {% endfor %}
   </div>
+  {% if has_filters %}<p class="filter-reset"><a href="{{ logbook_url }}">Filter zurücksetzen</a></p>{% endif %}
 
   {% if entries %}
     <div class="entry-table-wrap desktop-only">
@@ -48,8 +58,8 @@
               </td>
               <td class="entry-cell-images" data-label="Bilder">
                 {% if entry.image_count %}
-                  <button class="booking-images" type="button" data-viewer-images='{{ entry.images|tojson }}'>
-                    {{ entry.image_count }} Bild{% if entry.image_count != 1 %}er{% endif %}
+                  <button class="booking-images has-icon" type="button" data-viewer-images='{{ entry.images|tojson }}'>
+                    {{ icon('images') }} {{ entry.image_count }} Bild{% if entry.image_count != 1 %}er{% endif %}
                   </button>
                 {% else %}
                   <span class="entry-empty">Keine</span>
@@ -65,7 +75,15 @@
       {% include "_booking_cards.html" %}
     </div>
   {% else %}
-    <p>Noch keine Buchungen.</p>
+    {% if not filter_error %}<div class="empty-state"><p>{{ 'Keine passenden Einträge.' if has_filters else 'Keine weiteren Einträge auf dieser Seite.' if page > 1 else 'Noch keine Einträge.' }}</p>{% if page > 1 %}<a href="{{ first_url }}">Zur ersten Seite</a>{% endif %}</div>{% endif %}
+  {% endif %}
+
+  {% if not filter_error and (newer_url or older_url) %}
+  <nav class="pagination" aria-label="Logbuchseiten">
+    {% if newer_url %}<a class="button secondary" href="{{ newer_url }}" rel="prev">Neuere</a>{% endif %}
+    <span class="muted">Seite {{ page }}</span>
+    {% if older_url %}<a class="button secondary" href="{{ older_url }}" rel="next">Ältere</a>{% endif %}
+  </nav>
   {% endif %}
 
   <p class="card-link"><a href="/">Zur Raumübersicht</a></p>

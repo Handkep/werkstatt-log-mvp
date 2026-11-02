@@ -84,7 +84,7 @@ def reader_page(browser, secure_url):
 def scan(page, slug="sauna"):
     url = room_qr_url(room(slug))
     page.goto(url)
-    page.get_by_role("link", name="QR-Code ausdrucken", exact=True).wait_for()
+    page.get_by_role("link", name="QR-PDF herunterladen", exact=True).wait_for()
     assert "#" not in page.url
     return url
 
@@ -111,7 +111,7 @@ def test_scan_reads_images_and_prints_pdf_without_admin(reader_page, secure_url,
     assert cookie["secure"] and cookie["httpOnly"] and cookie["sameSite"] == "Lax"
     for _ in range(2):
         with page.expect_download() as download:
-            page.get_by_role("link", name="QR-Code ausdrucken", exact=True).click()
+            page.get_by_role("link", name="QR-PDF herunterladen", exact=True).click()
         assert download.value.suggested_filename == "zelter5-qr-sauna.pdf"
     page.get_by_role("link", name="Alle Buchungen anzeigen").click()
     assert "SAUNA-READER" in page.locator("body").inner_text()
@@ -143,12 +143,12 @@ def test_global_session_and_global_rotation_in_browser(reader_page, secure_url, 
     )
     assert rotation(client).status_code == 303
     page.goto(secure_url + "/r/sauna")
-    assert page.get_by_role("link", name="QR-Code ausdrucken", exact=True).count() == 0
+    assert page.get_by_role("link", name="QR-PDF herunterladen", exact=True).count() == 0
     page.goto(old_url)
     page.get_by_text("Dieser Raumzugang ist ungültig oder abgelaufen.", exact=False).wait_for()
     assert "#" not in page.url
     page.goto(secure_url + "/r/werkstatt")
-    assert page.get_by_role("link", name="QR-Code ausdrucken", exact=True).count() == 0
+    assert page.get_by_role("link", name="QR-PDF herunterladen", exact=True).count() == 0
     scan(page)
 
 
@@ -162,13 +162,14 @@ def test_admin_can_bootstrap_pdf_without_reader_session(browser, secure_url):
         page = context.new_page()
         page.goto(secure_url + "/admin/raumzugaenge")
         with page.expect_download() as download:
-            page.get_by_role("link", name="QR-Code ausdrucken", exact=True).first.click()
+            page.get_by_role("link", name="QR-PDF herunterladen", exact=True).first.click()
         assert download.value.suggested_filename == "zelter5-qr-werkstatt.pdf"
         page.evaluate(
             "Object.defineProperty(navigator, 'clipboard', {value: {writeText: async value => {window.adminCopiedLink = value;}}})"
         )
         page.get_by_role("button", name="Zugangslink kopieren", exact=True).first.click()
         page.get_by_text("Zugangslink kopiert.", exact=True).wait_for()
+        assert page.locator("[data-copied-icon]").first.is_visible()
         assert "#access=" in page.evaluate("window.adminCopiedLink")
         assert all(cookie["name"] != READER_COOKIE for cookie in context.cookies())
     finally:
@@ -187,7 +188,7 @@ def test_persistent_reader_cookie_works_on_localhost_http(browser, live_url, mon
         cookie = next(cookie for cookie in context.cookies() if cookie["name"] == READER_COOKIE)
         assert not cookie["secure"] and cookie["httpOnly"]
         with page.expect_download() as download:
-            page.get_by_role("link", name="QR-Code ausdrucken", exact=True).click()
+            page.get_by_role("link", name="QR-PDF herunterladen", exact=True).click()
         assert download.value.suggested_filename == "zelter5-qr-sauna.pdf"
     finally:
         context.close()
@@ -215,10 +216,10 @@ def test_copy_link_is_explicit_and_opens_global_access(reader_page, secure_url, 
     try:
         other = context.new_page()
         other.goto(copied)
-        other.get_by_role("link", name="QR-Code ausdrucken", exact=True).wait_for()
+        other.get_by_role("link", name="QR-PDF herunterladen", exact=True).wait_for()
         assert "#" not in other.url
         other.goto(secure_url + "/r/sauna")
-        assert other.get_by_role("link", name="QR-Code ausdrucken", exact=True).is_visible()
+        assert other.get_by_role("link", name="QR-PDF herunterladen", exact=True).is_visible()
     finally:
         context.close()
 
@@ -246,7 +247,7 @@ def test_cookie_restored_after_browser_restart(browser, reader_page, secure_url)
     try:
         other = restored.new_page()
         other.goto(secure_url + "/r/sauna")
-        assert other.get_by_role("link", name="QR-Code ausdrucken", exact=True).is_visible()
+        assert other.get_by_role("link", name="QR-PDF herunterladen", exact=True).is_visible()
         assert other.request.get(secure_url + "/r/dachterrasse/qr.pdf").status == 200
     finally:
         restored.close()

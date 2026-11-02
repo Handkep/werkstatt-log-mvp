@@ -1,0 +1,131 @@
+.icon {
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  color: inherit;
+}
+
+.icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--soft-text);
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-out);
+}
+
+.icon-button:hover,
+.icon-button:active,
+.admin-menu[open] .icon-button,
+.admin-menu.is-current .icon-button {
+  background: transparent;
+  color: var(--text);
+  transform: none;
+}
+
+.icon-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.icon-button:disabled {
+  cursor: wait;
+}
+
+.icon-button[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 70;
+  width: max-content;
+  max-width: min(240px, calc(100vw - 32px));
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.icon-button[data-tooltip-align="start"]::after {
+  right: auto;
+  left: 0;
+}
+
+.icon-button[data-tooltip]:hover::after,
+.icon-button[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.admin-menu[open] .icon-button[data-tooltip]::after {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.icon-button.is-copied,
+.is-copied [data-copied-icon] {
+  color: #15803d;
+}
+
+:root[data-theme="dark"] .icon-button.is-copied,
+:root[data-theme="dark"] .is-copied [data-copied-icon] {
+  color: #86efac;
+}
+
+.icon-state,
+.has-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.icon-state[hidden],
+.theme-target-light,
+:root[data-theme="dark"] .theme-target-dark {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme-target-light {
+  display: block;
+}
+
+.image-viewer-panel {
+  --control-bg: #0f172a;
+  --page-bg: #1e293b;
+  --border: #64748b;
+  --soft-text: #e2e8f0;
+  --text: #f8fafc;
+  --focus: #93c5fd;
+}
+
+.image-viewer-nav[hidden] {
+  visibility: hidden;
+}
+
+@media (max-width: 720px) {
+  .image-viewer-nav.icon-button {
+    position: absolute;
+  }
+}

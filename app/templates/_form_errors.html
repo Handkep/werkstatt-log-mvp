@@ -1,0 +1,7 @@
+{% if form_error %}
+  <div class="error-note" role="alert" tabindex="-1" data-form-error-summary>
+    <strong>Bitte prüfe deine Eingaben.</strong>
+    <ul>{% for field, message in field_errors.items() %}<li><a href="#{{ field }}">{{ message }}</a></li>{% endfor %}</ul>
+    {% if room %}<p>Falls du Bilder ausgewählt hattest, wähle sie bitte erneut aus.</p>{% endif %}
+  </div>
+{% endif %}

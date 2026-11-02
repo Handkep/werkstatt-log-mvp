@@ -75,36 +75,6 @@
   cursor: pointer;
 }
 
-.image-viewer-nav,
-.image-viewer-close {
-  width: 46px;
-  height: 46px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  padding: 0;
-  background: rgba(15, 23, 42, 0.88);
-  color: #f8fafc;
-}
-
-.image-viewer-nav {
-  display: grid;
-  place-items: center;
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
-.image-viewer-nav:hover,
-.image-viewer-close:hover {
-  background: rgba(30, 41, 59, 0.96);
-  color: #ffffff;
-}
-
-.image-viewer-close {
-  flex: 0 0 auto;
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
 .image-viewer-nav[hidden] {
   visibility: hidden;
 }
@@ -145,7 +115,7 @@
     position: absolute;
     top: 50%;
     z-index: 2;
-    transform: translateY(-50%);
+    translate: 0 -50%;
   }
 
   .image-viewer-nav-prev {

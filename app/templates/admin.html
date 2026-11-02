@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Admin{% endblock %}
 
 {% block content %}
@@ -78,8 +79,8 @@
               </td>
               <td class="entry-cell-images" data-label="Bilder">
                 {% if e.image_count %}
-                  <button class="booking-images" type="button" data-viewer-images='{{ e.images|tojson }}'>
-                    {{ e.image_count }} Bild{% if e.image_count != 1 %}er{% endif %}
+                  <button class="booking-images has-icon" type="button" data-viewer-images='{{ e.images|tojson }}'>
+                    {{ icon('images') }} {{ e.image_count }} Bild{% if e.image_count != 1 %}er{% endif %}
                   </button>
                 {% else %}
                   <span class="entry-empty">Keine Bilder</span>
@@ -112,8 +113,8 @@
 
           <div class="mobile-entry-actions">
             {% if e.image_count %}
-              <button class="booking-images" type="button" data-viewer-images='{{ e.images|tojson }}'>
-                {{ e.image_count }} Bild{% if e.image_count != 1 %}er{% endif %}
+              <button class="booking-images has-icon" type="button" data-viewer-images='{{ e.images|tojson }}'>
+                {{ icon('images') }} {{ e.image_count }} Bild{% if e.image_count != 1 %}er{% endif %}
               </button>
             {% else %}
               <span class="entry-empty">Keine Bilder</span>

@@ -19,9 +19,19 @@ function currentTheme() {
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
   storage.set("theme", theme);
+  syncThemeControl();
+}
+
+function syncThemeControl() {
+  if (!themeToggle) return;
+  const label = currentTheme() === "dark" ? "Helle Ansicht aktivieren" : "Dunkle Ansicht aktivieren";
+  themeToggle.setAttribute("aria-label", label);
+  themeToggle.dataset.tooltip = label;
 }
 
 if (themeToggle) {
+  syncThemeControl();
+  window.addEventListener("pageshow", syncThemeControl);
   themeToggle.addEventListener("click", () => {
     setTheme(currentTheme() === "dark" ? "light" : "dark");
   });
@@ -45,9 +55,10 @@ document.querySelectorAll("[data-admin-menu]").forEach((menu) => {
 
 document.querySelectorAll(".file-input").forEach((input) => {
   const label = input.closest(".file-drop")?.querySelector("[data-file-label]");
-  const title = input.closest(".file-drop")?.querySelector(".file-drop-title");
+  const title = input.closest(".file-drop")?.querySelector("[data-file-title]");
   const fileField = input.closest(".file-field");
   const previewList = fileField?.querySelector("[data-file-preview-list]");
+  const errorNote = fileField?.querySelector("[data-file-error]");
   const defaultLabel = label?.dataset.defaultLabel || "JPG, PNG oder WebP";
   let selectedFiles = [];
   const previewUrls = new Set();
@@ -115,6 +126,20 @@ document.querySelectorAll(".file-input").forEach((input) => {
       return;
     }
 
+    const maxFiles = Number(input.dataset.maxFiles);
+    const maxBytes = Number(input.dataset.maxFileBytes);
+    const tooLarge = selectedFiles.find((file) => file.size > maxBytes);
+    const error = selectedFiles.length > maxFiles
+      ? `Bitte wähle höchstens ${maxFiles} Bilder aus.`
+      : tooLarge ? `${tooLarge.name} ist zu groß. Erlaubt sind höchstens ${maxBytes / 1024 / 1024} MB je Bild.` : "";
+    input.setCustomValidity(error);
+    if (errorNote) {
+      errorNote.textContent = error;
+      errorNote.hidden = !error;
+    }
+    if (error) input.setAttribute("aria-invalid", "true");
+    else input.removeAttribute("aria-invalid");
+
     if (selectedFiles.length === 0) {
       title.textContent = "Bilder auswählen";
       label.textContent = defaultLabel;
@@ -137,9 +162,10 @@ document.querySelectorAll("[data-remember-usage-form]").forEach((form) => {
   const nameInput = form.querySelector("[data-remember-name]");
   const houseNumberInput = form.querySelector("[data-remember-house-number]");
   const houseGroupInputs = Array.from(form.querySelectorAll("[data-remember-house-group]"));
-  const remember = form.querySelector("[data-remember-enabled]");
-  const forgetButton = form.querySelector("[data-forget-personal]");
-  const status = form.querySelector("[data-remember-status]");
+  const remember = Array.from(form.elements).find((element) => element.matches("[data-remember-enabled]"));
+  const preferences = remember.closest(".remember-settings");
+  const forgetButton = preferences.querySelector("[data-forget-personal]");
+  const status = preferences.querySelector("[data-remember-status]");
   remember.checked = storage.get("usage_remember") !== "no";
   if (remember.checked && form.dataset.hasFormValues !== "1") {
     nameInput.value = storage.get("usage_person_name") || "";
@@ -188,6 +214,41 @@ document.querySelectorAll("[data-help-form]").forEach((form) => {
   if (storage.get("usage_remember") !== "no" && form.dataset.hasFormValues !== "1") {
     form.querySelector("[data-help-name]").value = storage.get("usage_person_name") || "";
   }
+});
+
+document.querySelector("[data-form-error-summary]")?.focus();
+document.querySelectorAll("[data-form-error-summary] a").forEach((link) => {
+  link.addEventListener("click", () => {
+    const target = document.getElementById(link.hash.slice(1));
+    if (target?.matches("fieldset")) target.querySelector("input, select, textarea")?.focus();
+    else target?.focus();
+  });
+});
+function openHelpTopic() {
+  const topic = document.getElementById(window.location.hash.slice(1));
+  if (topic?.matches(".help-topics details")) topic.open = true;
+}
+openHelpTopic();
+window.addEventListener("hashchange", openHelpTopic);
+
+document.querySelectorAll("[data-submit-once]").forEach((form) => {
+  const button = form.querySelector('button[type="submit"]');
+  const originalLabel = button.textContent;
+  let submitting = false;
+  form.addEventListener("submit", (event) => {
+    if (submitting) { event.preventDefault(); return; }
+    if (event.defaultPrevented || !form.checkValidity()) return;
+    submitting = true;
+    button.disabled = true;
+    button.textContent = "Wird gespeichert …";
+    form.setAttribute("aria-busy", "true");
+  });
+  window.addEventListener("pageshow", () => {
+    submitting = false;
+    button.disabled = false;
+    button.textContent = originalLabel;
+    form.removeAttribute("aria-busy");
+  });
 });
 
 document.querySelectorAll(".clickable-row").forEach((row) => {
@@ -363,38 +424,120 @@ document.querySelectorAll("form[data-confirm]").forEach((form) => {
   });
 });
 
-document.querySelectorAll("[data-room-bookings]").forEach(async (container) => {
-  function showMessage(message) {
-    const note = document.createElement("p");
-    note.className = "muted";
-    note.setAttribute("role", "status");
-    note.textContent = message;
-    container.replaceChildren(note);
+function asyncMessage(container, message, retry) {
+  const note = document.createElement("p");
+  note.className = "muted";
+  note.setAttribute("role", "status");
+  note.textContent = message;
+  container.replaceChildren(note);
+  if (retry) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "retry-button secondary-button";
+    button.textContent = "Erneut versuchen";
+    button.addEventListener("click", retry);
+    container.append(button);
   }
-  try {
-    const response = await fetch(container.dataset.roomBookings, {
-      credentials: "same-origin",
-      cache: "no-store",
-      redirect: "error",
-    });
-    if (!response.ok) {
-      showMessage(response.status === 403
-        ? "Zum Lesen der Buchungen bitte einen aktuellen Raum-QR-Code scannen."
-        : "Buchungen derzeit nicht verfügbar. Bitte später erneut versuchen.");
-      return;
+}
+
+document.querySelectorAll("[data-room-bookings]").forEach((container) => {
+  async function load() {
+    container.setAttribute("aria-busy", "true");
+    asyncMessage(container, "Buchungen werden geladen …");
+    try {
+      const response = await fetch(container.dataset.roomBookings, {
+        credentials: "same-origin",
+        cache: "no-store",
+        redirect: "error",
+      });
+      if (!response.ok) {
+        asyncMessage(container, response.status === 403
+          ? "Zum Lesen der Buchungen bitte einen aktuellen Raum-QR-Code scannen."
+          : "Buchungen derzeit nicht verfügbar.", response.status === 403 ? null : load);
+        return;
+      }
+      container.innerHTML = await response.text();
+    } catch {
+      asyncMessage(container, "Buchungen konnten nicht geladen werden.", load);
+    } finally {
+      container.setAttribute("aria-busy", "false");
     }
-    container.innerHTML = await response.text();
-  } catch {
-    showMessage("Buchungen konnten nicht geladen werden. Bitte später erneut versuchen.");
-  } finally {
-    container.setAttribute("aria-busy", "false");
   }
+  load();
+});
+
+document.querySelectorAll("[data-room-status-url]").forEach((grid) => {
+  const message = document.querySelector("[data-room-status-message]");
+  const slots = Array.from(grid.querySelectorAll("[data-room-status]"));
+  const formatter = new Intl.DateTimeFormat("de-DE", {
+    timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+  async function load() {
+    message.hidden = true;
+    slots.forEach((slot) => {
+      slot.setAttribute("aria-busy", "true");
+      slot.textContent = "Letzte Meldung wird geladen …";
+    });
+    try {
+      const response = await fetch(grid.dataset.roomStatusUrl, {
+        credentials: "same-origin", cache: "no-store", redirect: "error",
+      });
+      if (!response.ok) {
+        slots.forEach((slot) => { slot.textContent = "Meldung nicht verfügbar"; });
+        message.hidden = false;
+        asyncMessage(message, response.status === 403
+          ? "Zum Lesen bitte einen aktuellen Raum-QR-Code scannen."
+          : "Die letzten Meldungen konnten nicht geladen werden.", response.status === 403 ? null : load);
+        return;
+      }
+      const statuses = await response.json();
+      slots.forEach((slot) => {
+        const report = statuses.find((entry) => entry.slug === slot.dataset.roomStatus);
+        slot.replaceChildren();
+        if (!report?.started_at) { slot.textContent = "Noch keine Zustandsmeldung"; return; }
+        const label = document.createElement("span");
+        label.className = "muted";
+        label.textContent = "Letzte Meldung";
+        const condition = document.createElement("span");
+        const stateClass = { "Sauber": "condition-clean", "Aufräumen nötig": "condition-warning", "Problem/Defekt": "condition-problem" }[report.condition];
+        condition.className = `condition-pill ${stateClass || ""}`;
+        condition.textContent = report.condition || "Nicht erfasst";
+        const time = document.createElement("time");
+        time.dateTime = report.started_at;
+        const date = new Date(report.started_at);
+        time.textContent = Number.isNaN(date.getTime()) ? "Zeitpunkt nicht verfügbar" : formatter.format(date);
+        slot.append(label, condition, time);
+      });
+    } catch {
+      slots.forEach((slot) => { slot.textContent = "Meldung nicht verfügbar"; });
+      message.hidden = false;
+      asyncMessage(message, "Die letzten Meldungen konnten nicht geladen werden.", load);
+    } finally {
+      slots.forEach((slot) => { slot.setAttribute("aria-busy", "false"); });
+    }
+  }
+  load();
 });
 
 
 // Geheime Zugangslinks werden erst nach einem bewussten Klick angefordert.
 document.querySelectorAll("[data-copy-access-link]").forEach((button) => {
+  let feedbackTimer;
+  function showCopied(copied) {
+    const linkIcon = button.querySelector("[data-copy-icon]");
+    const checkIcon = button.querySelector("[data-copied-icon]");
+    if (linkIcon) linkIcon.hidden = copied;
+    if (checkIcon) checkIcon.hidden = !copied;
+    button.classList.toggle("is-copied", copied);
+    button.dataset.tooltip = copied ? "Zugangslink kopiert" : "Zugangslink kopieren";
+  }
+  window.addEventListener("pagehide", () => {
+    clearTimeout(feedbackTimer);
+    showCopied(false);
+  });
   button.addEventListener("click", async () => {
+    clearTimeout(feedbackTimer);
+    showCopied(false);
     const status = button.closest("[data-access-link-control]").querySelector("[data-access-link-status]");
     status.hidden = false;
     status.textContent = "Zugangslink wird vorbereitet …";
@@ -419,6 +562,8 @@ document.querySelectorAll("[data-copy-access-link]").forEach((button) => {
       try {
         await navigator.clipboard.writeText(url);
         status.textContent = "Zugangslink kopiert.";
+        showCopied(true);
+        feedbackTimer = setTimeout(() => showCopied(false), 2000);
       } catch {
         const input = document.createElement("input");
         input.type = "text";

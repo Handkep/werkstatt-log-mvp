@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse, Response
+from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.capabilities import READER_COOKIE, renew_reader_session, set_reader_cookie
@@ -26,6 +26,7 @@ from app.config import (
     TRUSTED_PROXY_NETWORKS,
 )
 from app.db import db_connect
+from app.public_errors import public_failure
 
 PUBLIC_SUBMISSION = re.compile(r"^/r/[^/]+/(submit|access)/?$")
 
@@ -140,13 +141,14 @@ class RequestProtectionMiddleware:
                     renewed = await run_in_threadpool(renew_reader_session, session_hash)
                 except (sqlite3.Error, HTTPException):
                     suppressed = True
-                    await PlainTextResponse("Leseberechtigung derzeit nicht verfügbar.", 503)(
-                        scope, receive, deliver
-                    )
+                    await public_failure(
+                        Request(scope), "Leseberechtigung derzeit nicht verfügbar.", 503
+                    )(scope, receive, deliver)
                     return
                 if renewed is None:
                     suppressed = True
-                    await PlainTextResponse(
+                    await public_failure(
+                        Request(scope),
                         "Leseberechtigung abgelaufen oder widerrufen. Bitte aktuellen QR-Code scannen.",
                         403,
                     )(scope, receive, deliver)
@@ -163,7 +165,9 @@ class RequestProtectionMiddleware:
 
         async def reject(code: int, message: str, retry: int = 0):
             extra = {"Retry-After": str(retry)} if retry else None
-            await PlainTextResponse(message, code, headers=extra)(scope, receive, secure_send)
+            await public_failure(Request(scope), message, code, headers=extra)(
+                scope, receive, secure_send
+            )
 
         if scope["method"] in {"POST", "PUT", "PATCH", "DELETE"}:
             length = headers.get("content-length")

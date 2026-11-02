@@ -37,7 +37,7 @@
   --primary-text: #ffffff;
   --link: #1d4ed8;
   --accent: #16a34a;
-  --focus: rgba(17, 24, 39, 0.25);
+  --focus: #1d4ed8;
   --accent-focus: rgba(22, 163, 74, 0.22);
   --shadow: rgba(0, 0, 0, 0.08);
   --motion-fast: 140ms;
@@ -58,7 +58,7 @@
   --primary-text: #111318;
   --link: #93c5fd;
   --accent: #86efac;
-  --focus: rgba(245, 247, 251, 0.25);
+  --focus: #93c5fd;
   --accent-focus: rgba(134, 239, 172, 0.22);
   --shadow: rgba(0, 0, 0, 0.28);
 }

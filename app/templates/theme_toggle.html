@@ -1,3 +1,5 @@
-<button class="theme-toggle" type="button" aria-label="Dark Mode umschalten" title="Dark Mode umschalten">
-  ☀
+{% from "_icons.html" import icon %}
+<button class="icon-button theme-toggle" type="button" aria-label="Dunkle Ansicht aktivieren" data-tooltip="Dunkle Ansicht aktivieren">
+  {{ icon('moon', 'theme-target-dark') }}
+  {{ icon('sun', 'theme-target-light') }}
 </button>

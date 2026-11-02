@@ -1,3 +1,4 @@
+{% from "_icons.html" import icon %}
 <div class="image-viewer" data-image-viewer data-viewer-upload-base="{{ '/admin/uploads/' if admin_authenticated else '/uploads/' }}" hidden>
   <div class="image-viewer-backdrop" data-viewer-close></div>
   <div class="image-viewer-panel" role="dialog" aria-modal="true" aria-label="Bilder ansehen">
@@ -6,12 +7,12 @@
         <strong>Bilder</strong>
         <span data-viewer-count role="status" aria-live="polite"></span>
       </div>
-      <button class="image-viewer-close" type="button" data-viewer-close aria-label="Viewer schließen">×</button>
+      <button class="icon-button image-viewer-close" type="button" data-viewer-close aria-label="Viewer schließen" data-tooltip="Viewer schließen">{{ icon('x') }}</button>
     </div>
     <div class="image-viewer-stage">
-      <button class="image-viewer-nav image-viewer-nav-prev" type="button" data-viewer-prev aria-label="Vorheriges Bild">‹</button>
+      <button class="icon-button image-viewer-nav image-viewer-nav-prev" type="button" data-viewer-prev aria-label="Vorheriges Bild" data-tooltip="Vorheriges Bild" data-tooltip-align="start">{{ icon('chevron-left') }}</button>
       <img data-viewer-image alt="Hochgeladenes Bild">
-      <button class="image-viewer-nav image-viewer-nav-next" type="button" data-viewer-next aria-label="Nächstes Bild">›</button>
+      <button class="icon-button image-viewer-nav image-viewer-nav-next" type="button" data-viewer-next aria-label="Nächstes Bild" data-tooltip="Nächstes Bild">{{ icon('chevron-right') }}</button>
     </div>
     <div class="image-viewer-controls">
       <p class="image-viewer-hint">Mit den Pfeiltasten navigieren, mit Esc schließen.</p>

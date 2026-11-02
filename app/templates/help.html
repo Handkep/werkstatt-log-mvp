@@ -2,28 +2,36 @@
 {% block title %}Hilfe & Infos{% endblock %}
 
 {% block content %}
-<section class="card">
+<section class="card content-narrow">
   <h1>Hilfe & Infos</h1>
-  <p class="muted">Hier kannst du Fragen, Verbesserungsvorschläge oder sonstige Hinweise hinterlassen.</p>
+  <p class="muted">So funktioniert das Raumlog. Für Fragen und Hinweise kannst du uns unten eine Nachricht hinterlassen.</p>
+
+  <div class="help-topics">
+    <details><summary>Wie dokumentiere ich eine Nutzung?</summary><p>Wähle einen Raum, gib Name und Haus an und beschreibe den Zustand beim Verlassen. Bemerkungen und Bilder sind freiwillig. Nach dem Speichern hilft dir eine kurze Checkliste bei der Übergabe.</p></details>
+    <details id="qr-zugang"><summary>Wie bekomme ich Zugang zum Logbuch?</summary><p>Scanne einen aktuellen Raum-QR-Code mit deinem Smartphone und öffne den Link in deinem Browser. Ein gültiger Code gibt dir Lesezugang zu allen Raumlogbüchern und zugehörigen Bildern. Er öffnet gleichzeitig das Formular des gescannten Raums.</p><p>Ist dein Zugang abgelaufen oder widerrufen, scanne einen aktuellen Code im Raum erneut. Ohne Lesezugang kannst du weiterhin Nutzungen und Nachrichten eintragen.</p><p>Mit Lesezugang kannst du Raum-QR-PDFs herunterladen und Zugangslinks kopieren. Wer einen solchen Code oder Link erhält, kann ebenfalls alle Logbücher und Bilder lesen.</p></details>
+    <details><summary>Wer kann meine Angaben sehen?</summary><p>Name, Haus, Nutzungsangaben und Bilder sind für Personen mit gültigem QR-Lesezugang und für die Administration sichtbar. Nachrichten aus dem Formular auf dieser Seite sieht ausschließlich die Administration. Der Name ist dabei optional.</p></details>
+    <details><summary>Was merkt sich mein Gerät?</summary><p>Name, Haus und Nummer werden bei aktivierter Speicheroption bereits beim Ausfüllen auf diesem Gerät gemerkt. Du kannst die Option im Raumformular ausschalten oder „Gespeicherte Eingaben entfernen“ wählen. Bemerkungen, Zustände und Bilder werden nicht lokal gespeichert.</p><p>Der QR-Lesezugang wird getrennt davon über ein Browsercookie gespeichert. Weitere Einzelheiten findest du in den <a href="/datenschutz">Datenschutzhinweisen</a>.</p></details>
+    <details><summary>Welche Bilder kann ich hinzufügen?</summary><p>Du kannst JPG-, PNG- und WebP-Bilder hochladen: maximal {{ limits.max_upload_images }} Bilder mit jeweils {{ limits.max_upload_size_mb }} MB. Wähle nur Bilder aus, die für deine Meldung nötig sind. Anzahl und Größe werden schon bei der Auswahl geprüft; der Server prüft zusätzlich den Bildinhalt.</p></details>
+  </div>
 
   {% if saved %}
-    <p class="success-note">Danke, deine Nachricht wurde gespeichert.</p>
+    <p class="success-note" role="status">Danke, deine Nachricht wurde gespeichert.</p>
   {% endif %}
 
-  {% if form_error %}
-    <p class="error-note" role="alert">{{ form_error }}</p>
-  {% endif %}
+  {% include "_form_errors.html" %}
 
-  <h2>Nachricht senden</h2>
-  <form method="post" action="/hilfe" data-help-form data-has-form-values="{% if form_values %}1{% else %}0{% endif %}">
+  <h2 id="nachricht">Nachricht senden</h2>
+  <form method="post" action="/hilfe" data-submit-once data-help-form data-has-form-values="{% if form_values %}1{% else %}0{% endif %}">
     <label>
       Name · optional
-      <input name="person_name" autocomplete="name" maxlength="{{ limits.max_name_length }}" value="{{ form_values.person_name or '' }}" placeholder="{{ name_placeholder }}" data-help-name>
+      <input id="person_name" name="person_name" autocomplete="name" maxlength="{{ limits.max_name_length }}" value="{{ form_values.person_name or '' }}" placeholder="{{ name_placeholder }}" data-help-name {% if field_errors.person_name %}aria-invalid="true" aria-describedby="error-person_name"{% endif %}>
+      {% if field_errors.person_name %}<span class="field-error" id="error-person_name">{{ field_errors.person_name }}</span>{% endif %}
     </label>
 
     <label>
       Nachricht
-      <textarea name="note" rows="6" required maxlength="{{ limits.max_general_note_length }}" placeholder="Was möchtest du loswerden?">{{ form_values.note or '' }}</textarea>
+      <textarea id="note" name="note" rows="6" required maxlength="{{ limits.max_general_note_length }}" placeholder="Was möchtest du loswerden?" {% if field_errors.note %}aria-invalid="true" aria-describedby="error-note"{% endif %}>{{ form_values.note or '' }}</textarea>
+      {% if field_errors.note %}<span class="field-error" id="error-note">{{ field_errors.note }}</span>{% endif %}
     </label>
 
     <button type="submit">Nachricht senden</button>

@@ -437,11 +437,11 @@ def test_invalid_token_is_never_echoed(reader_client, caplog):
 
 
 def test_form_and_overview_offer_all_qr_actions_after_one_scan(reader_client):
-    assert 'class="room-card-qr"' not in reader_client.get("/").text
+    assert "room-card-qr" not in reader_client.get("/").text
     grant(reader_client, "werkstatt")
     for slug in ["sauna", "dachterrasse"]:
         content = reader_client.get(f"/r/{slug}").text
-        assert "QR-Code ausdrucken" in content and "Zugangslink kopieren" in content
+        assert "QR-PDF herunterladen" in content and "Zugangslink kopieren" in content
         assert token(slug) not in content
     assert 'href="/r/sauna/qr.pdf"' in reader_client.get("/").text
 

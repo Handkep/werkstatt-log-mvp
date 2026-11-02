@@ -78,6 +78,61 @@ Die bisherigen Adressen `/letzte-buchungen`, `/anmerkungen` und `/admin/anmerkun
 wurden ohne Weiterleitungen oder Alias-Routen entfernt. Neu erzeugte QR-Links
 benötigen keinen besonderen Formularmodus; der Header ist einheitlich.
 
+### Bewohneransichten
+
+Aktionsicons stammen aus lokal gebündelten Lucide-SVGs. Herkunft, feste Revision,
+Prüfsummen und ISC-/MIT-Lizenz liegen unter `app/static/icons/lucide/`. Ein gemeinsames
+Jinja-Makro liefert 22-Pixel-Icons mit einheitlicher Strichstärke; reine Icon-Aktionen
+haben 44-Pixel-Bedienflächen ohne sichtbaren Rahmen oder Hintergrund sowie
+Hinweise bei Hover oder Tastaturfokus.
+Der Darstellungswechsel zeigt die Zielansicht (Mond für dunkel, Sonne für hell).
+Nach erfolgreichem Link-Kopieren erscheint für zwei Sekunden ein Häkchen; bei
+Clipboard-Fehlern bleibt der manuell kopierbare Link erhalten. Die Icons benötigen
+keine zusätzliche JavaScript-Bibliothek und keine externen Netzwerkanfragen.
+
+Raumkarten sind native Links und funktionieren ohne JavaScript. Das Raster zeigt
+je nach Breite eine, zwei oder drei Spalten; Raum- und Nachrichtenformulare sind
+auf 760 Pixel begrenzt. „Hilfe & Infos“ erklärt Nutzung, globalen QR-Lesezugang,
+Datensichtbarkeit, lokale Eingaben und Bildlimits. Der Link `/hilfe#qr-zugang`
+öffnet die passende Erklärung direkt.
+
+Im Raumformular steht der Datenschutzhinweis direkt über „Nutzung speichern“.
+Die Speicheroption für Name, Haus und Nummer, das Entfernen gespeicherter Angaben
+und der Feedbackhinweis stehen im Footer der Raumseiten. Nach erfolgreichem
+Speichern ist „Zur Raumübersicht“ die Hauptaktion; die Raum-Checkliste bleibt
+erhalten. Verwaltungsfilter umbrechen unter 1024 Pixeln auf mehrere Zeilen.
+
+Das Logbuch unterstützt kombinierbare GET-Filter: `raum` (aktiver Raumslug),
+`zustand` (einer der drei angebotenen Zustände), `q` (wörtliche Teilstringsuche,
+maximal 100 Zeichen) und `seite` (1 bis 1000000, Standard 1). Gesucht wird in Name,
+Haus, Bemerkung und Raumname. Pro Seite erscheinen 20 nicht gelöschte Einträge,
+sortiert nach Zeitpunkt und ID absteigend. „Neuere“/„Ältere“ behalten die Filter;
+Raum- und Suchänderungen beginnen auf Seite 1. Ungültige Filter liefern eine
+HTML-Antwort mit Status 400. Bei gleichzeitigen neuen Einträgen kann sich die
+Zuordnung zu den nummerierten Seiten verschieben.
+
+Mit Leseberechtigung lädt die Raumübersicht über `/rooms/latest-status` die
+letzte nicht gelöschte Meldung je aktivem Raum nach. Die JSON-Liste enthält nur
+`slug`, `condition` und `started_at`; ohne Eintrag sind die letzten beiden Werte
+`null`. Der öffentliche HTML-Inhalt enthält keine Meldungsdaten. Der geschützte
+Abruf verlängert eine gültige Reader-Sitzung, der Abruf der öffentlichen Übersicht
+allein nicht. Die Admin-Variante `/admin/rooms/latest-status` verwendet ausschließlich
+die bestehende Admin-Authentifizierung. Zustand und Zeitpunkt beschreiben eine
+frühere Meldung, keine aktuelle Belegung oder verbindliche Freigabe des Raums.
+
+Normale Browseraufrufe der Bewohnerseiten erhalten bei fehlendem Zugang oder
+Übertragungs-/Dienstfehlern eine gestaltete Fehlerseite mit Navigation und dem
+ursprünglichen HTTP-Status. Daten-, PDF- und Bildendpunkte behalten ihre bisherigen
+Antwortformate. Sitzungswiderruf unmittelbar vor der Auslieferung wird weiterhin
+vor der Ausgabe privater Inhalte geprüft.
+
+Formulare zeigen feldbezogene Fehler mit fokussierter Zusammenfassung und erhalten
+übermittelte Textwerte bei Validierungsfehlern. Bilder müssen danach erneut gewählt
+werden. Die optionale Browserprüfung von Bildanzahl und Dateigröße ersetzt keine
+serverseitige Prüfung. Während einer Übermittlung verhindert die Oberfläche weitere
+Absendeversuche; dies ist keine serverseitige Idempotenzgarantie. Nach erfolgreichem
+Speichern folgt weiterhin eine 303-Weiterleitung. Es gibt keine Schemaänderung.
+
 ## Zugriffsmodell
 
 | Route | Zugriff und Zweck |
@@ -94,6 +149,8 @@ benötigen keinen besonderen Formularmodus; der Header ist einheitlich.
 | `/hilfe` | Hilfe & Infos mit öffentlichem Nachrichtenformular, keine eingegangenen Nachrichten |
 | `/admin/nachrichten` | eingereichte Nachrichten, nur Admin |
 | `/logbuch` | globale Reader-Ansicht aller nicht gelöschten Nutzungen |
+| `/rooms/latest-status` | geschützte JSON-Liste der letzten Zustandsmeldungen aktiver Räume |
+| `/admin/rooms/latest-status` | dieselben minimalen Zustandsdaten unter Admin-Authentifizierung |
 | `/admin` | gefilterte Verwaltungsübersicht, nur Admin |
 | `/admin/session/{id}` | aktive Nutzung mit Bildern, nur Admin |
 | `/admin/session/{id}/delete` | POST mit Admin-Anmeldung und CSRF-Token |
